@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { motion } from "motion/react";
+import HCaptcha from '@hcaptcha/react-hcaptcha';
+import axios from 'axios';
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -12,6 +14,8 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
   const navigate = useNavigate();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -21,14 +25,29 @@ export default function Register() {
       return setError("Passwords do not match");
     }
 
+    if (!captchaToken) {
+      return setError("Please complete the captcha.");
+    }
+
     try {
       setError("");
       setLoading(true);
+
+      // Verify captcha on server
+      const verifyRes = await axios.post('/api/verify-hcaptcha', { token: captchaToken });
+      if (!verifyRes.data.success) {
+        setCaptchaToken(null);
+        captchaRef.current?.resetCaptcha();
+        return setError("Captcha verification failed. Please try again.");
+      }
+
       await createUserWithEmailAndPassword(auth, email, password);
       navigate("/");
     } catch (err: any) {
       console.error(err);
       setError("Failed to create an account. " + err.message);
+      setCaptchaToken(null);
+      captchaRef.current?.resetCaptcha();
     }
     setLoading(false);
   }
@@ -80,6 +99,15 @@ export default function Register() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
+            />
+          </div>
+
+          <div className="flex justify-center">
+            <HCaptcha
+              sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"}
+              onVerify={(token) => setCaptchaToken(token)}
+              onExpire={() => setCaptchaToken(null)}
+              ref={captchaRef}
             />
           </div>
 

@@ -30,6 +30,11 @@ export default function Dashboard() {
   const [links, setLinks] = useState<LinkData[]>([]);
   const [error, setError] = useState("");
   
+  // Search and Sort State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<'createdAt' | 'clicks' | 'shortCode'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
   // Settings Modal State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentLinkSettings, setCurrentLinkSettings] = useState<LinkData | null>(null);
@@ -144,6 +149,24 @@ export default function Dashboard() {
         console.error("Failed to update settings", err);
     }
   };
+
+  // Filter and Sort Links
+  const filteredAndSortedLinks = links
+    .filter((link) => {
+      const query = searchQuery.toLowerCase();
+      return (
+        link.shortCode.toLowerCase().includes(query) ||
+        link.originalUrl.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'createdAt') comparison = a.createdAt - b.createdAt;
+      else if (sortBy === 'clicks') comparison = a.clicks - b.clicks;
+      else if (sortBy === 'shortCode') comparison = a.shortCode.localeCompare(b.shortCode);
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   return (
     <div className="space-y-12 relative">
@@ -276,16 +299,70 @@ export default function Dashboard() {
       </motion.div>
 
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-900">Seus Links</h2>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Seus Links</h2>
+          
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Pesquisar links..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border-gray-200 bg-white px-4 py-2 pl-10 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
+              />
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="rounded-xl border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                <option value="createdAt">Data de Criação</option>
+                <option value="clicks">Cliques</option>
+                <option value="shortCode">Alias</option>
+              </select>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 border border-gray-200 bg-white"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              >
+                {sortOrder === 'asc' ? (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-1v12m0 0l-4-4m4 4l4-4" />
+                  </svg>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
         
         {links.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300">
             <p className="text-gray-500">Nenhum link ainda. Crie o seu primeiro acima!</p>
           </div>
+        ) : filteredAndSortedLinks.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300">
+            <p className="text-gray-500">Nenhum link encontrado para "{searchQuery}".</p>
+          </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
-              {links.map((link) => (
+              {filteredAndSortedLinks.map((link) => (
                 <motion.div
                   key={link.shortCode}
                   layout
@@ -300,6 +377,11 @@ export default function Dashboard() {
                         <h3 className="font-bold text-indigo-600 flex items-center gap-2">
                           /{link.shortCode}
                           <ExternalLink className="h-3 w-3 opacity-50" />
+                          {link.settings?.expiresAt && Date.now() > link.settings.expiresAt && (
+                            <span className="ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-600 rounded-full">
+                              Expirado
+                            </span>
+                          )}
                         </h3>
                         <p className="text-xs text-gray-500 line-clamp-1 break-all" title={link.originalUrl}>
                           {link.originalUrl}
