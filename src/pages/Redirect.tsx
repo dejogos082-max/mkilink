@@ -77,10 +77,13 @@ export default function Redirect() {
         setIsCaptchaVerified(true);
       } else {
         console.error("Captcha verification failed:", response.data.error);
+        alert("Falha na verificação do Captcha. Verifique se o servidor está rodando.");
         captchaRef.current?.resetCaptcha();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Captcha verification error:", error);
+      const msg = error.response?.data?.error || error.message;
+      alert(`Erro de conexão com o servidor: ${msg}. Se estiver no Cloudflare Pages, você precisa configurar as Functions.`);
       captchaRef.current?.resetCaptcha();
     }
   };
@@ -92,7 +95,9 @@ export default function Redirect() {
     
     if (!visitorId) return; // Cannot fire without visitor_id
 
-    let url = `https://ad.propellerads.com/conversion.php?aid=3895472&pid=&tid=153340&visitor_id=${visitorId}&payout=${payout}`;
+    const aid = import.meta.env.VITE_PROPELLER_AID || "3895472";
+    const tid = import.meta.env.VITE_PROPELLER_TID || "153340";
+    let url = `https://ad.propellerads.com/conversion.php?aid=${aid}&pid=&tid=${tid}&visitor_id=${visitorId}&payout=${payout}`;
     if (goal) {
       url += `&goal=${goal}`;
     }
@@ -174,15 +179,16 @@ export default function Redirect() {
   useEffect(() => {
     if (!originalUrl) return;
 
-    // Adsterra Popunder Script (ID: 28690364)
+    // Adsterra Popunder Script
     const popunderScript = document.createElement('script');
-    popunderScript.src = "https://pl28790863.effectivegatecpm.com/68/3b/77/683b770e844c241a13aeb7420291d24a.js";
+    popunderScript.src = import.meta.env.VITE_ADSTERRA_POPUNDER_URL || "https://pl28790863.effectivegatecpm.com/68/3b/77/683b770e844c241a13aeb7420291d24a.js";
     popunderScript.async = true;
     document.body.appendChild(popunderScript);
 
     // RTMark Script
     const rtScript = document.createElement('script');
-    rtScript.src = "https://my.rtmark.net/p.js?f=sync&lr=1&partner=d5d41e36a76e12bf7a278e7cbfef774d16aaeb5d8929f02ddc515d9fa0ebfbda";
+    const rtPartnerId = import.meta.env.VITE_RTMARK_PARTNER_ID || "d5d41e36a76e12bf7a278e7cbfef774d16aaeb5d8929f02ddc515d9fa0ebfbda";
+    rtScript.src = `https://my.rtmark.net/p.js?f=sync&lr=1&partner=${rtPartnerId}`;
     rtScript.defer = true;
     document.body.appendChild(rtScript);
 
@@ -255,11 +261,11 @@ export default function Redirect() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Top Ad Banner - 728x90 */}
         <div className="hidden md:block">
-            <AdsterraAd width={728} height={90} adKey="0ca51050bd22ba2d41c5886673f1d125" />
+            <AdsterraAd width={728} height={90} adKey={import.meta.env.VITE_ADSTERRA_KEY_728_90 || "0ca51050bd22ba2d41c5886673f1d125"} />
         </div>
         {/* Mobile Fallback for Top Banner - 468x60 */}
         <div className="block md:hidden">
-            <AdsterraAd width={468} height={60} adKey="fe708b38a538d928d198c016373d636b" />
+            <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -313,7 +319,7 @@ export default function Redirect() {
                 {!isCaptchaVerified && (
                   <div className="flex justify-center my-4">
                     <HCaptcha
-                      sitekey="0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"
+                      sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"}
                       onVerify={handleCaptchaVerify}
                       ref={captchaRef}
                     />
@@ -370,14 +376,14 @@ export default function Redirect() {
 
             {/* Content Ad - 468x60 */}
             {adCount >= 3 && (
-                <AdsterraAd width={468} height={60} adKey="fe708b38a538d928d198c016373d636b" />
+                <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
             )}
             
             {/* Additional Ads for High Count */}
             {adCount >= 5 && (
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <AdsterraAd width={300} height={250} adKey="cc2b7dcc58facfed3b3f747cdeae7485" />
-                    <AdsterraAd width={300} height={250} adKey="cc2b7dcc58facfed3b3f747cdeae7485" />
+                    <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
+                    <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
                  </div>
             )}
             
@@ -385,11 +391,11 @@ export default function Redirect() {
             {adCount >= 10 && (
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <AdsterraAd width={300} height={250} adKey="cc2b7dcc58facfed3b3f747cdeae7485" />
-                        <AdsterraAd width={300} height={250} adKey="cc2b7dcc58facfed3b3f747cdeae7485" />
+                        <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
+                        <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
                     </div>
-                    <AdsterraAd width={468} height={60} adKey="fe708b38a538d928d198c016373d636b" />
-                    <AdsterraAd width={468} height={60} adKey="fe708b38a538d928d198c016373d636b" />
+                    <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
+                    <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
                 </div>
             )}
           </div>
@@ -398,17 +404,17 @@ export default function Redirect() {
           <div className="space-y-6 flex flex-col items-center md:block">
             {/* Sidebar Ad 1 - 300x250 */}
             {adCount >= 1 && (
-                <AdsterraAd width={300} height={250} adKey="cc2b7dcc58facfed3b3f747cdeae7485" />
+                <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
             )}
             
             {/* Sidebar Ad 2 - 160x300 */}
             {adCount >= 3 && (
-                <AdsterraAd width={160} height={300} adKey="40ba51d801ce3b95edba18997ac87495" />
+                <AdsterraAd width={160} height={300} adKey={import.meta.env.VITE_ADSTERRA_KEY_160_300 || "40ba51d801ce3b95edba18997ac87495"} />
             )}
             
             {/* Additional Sidebar Ads */}
             {adCount >= 5 && (
-                <AdsterraAd width={160} height={600} adKey="40ba51d801ce3b95edba18997ac87495" />
+                <AdsterraAd width={160} height={600} adKey={import.meta.env.VITE_ADSTERRA_KEY_160_300 || "40ba51d801ce3b95edba18997ac87495"} />
             )}
           </div>
         </div>

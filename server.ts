@@ -1,4 +1,5 @@
 import express from "express";
+import "dotenv/config";
 import { createServer as createViteServer } from "vite";
 import axios from "axios";
 import path from "path";
@@ -19,7 +20,7 @@ async function startServer() {
         "https://api3.adsterratools.com/publisher/smart-links.json",
         {
           headers: {
-            "X-API-Key": "ea82811a47ef05494e248828de87b519",
+            "X-API-Key": process.env.ADSTERRA_API_KEY || "ea82811a47ef05494e248828de87b519",
           },
         }
       );
@@ -43,7 +44,7 @@ async function startServer() {
   // hCaptcha Verification Endpoint
   app.post("/api/verify-hcaptcha", async (req, res) => {
     const { token } = req.body;
-    const secret = "ES_e3e3c0fb840a4f05a81c290a712e1e18";
+    const secret = process.env.HCAPTCHA_SECRET || "ES_e3e3c0fb840a4f05a81c290a712e1e18";
 
     if (!token) {
       return res.status(400).json({ success: false, error: "Token is required" });
