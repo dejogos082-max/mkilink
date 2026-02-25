@@ -120,7 +120,7 @@ export default function Stats() {
 
   // Calculate Aggregates
   const totalAllTimeClicks = links.reduce((acc, link) => acc + link.clicks, 0);
-  const totalClicksInPeriod = Object.values(filteredStats).reduce((acc: number, events: ClickEvent[]) => acc + events.length, 0);
+  const totalClicksInPeriod = (Object.values(filteredStats) as ClickEvent[][]).reduce((acc, events) => acc + events.length, 0);
   const totalLinks = links.length; 
   
   // Top Links Data (based on filtered clicks)
@@ -145,7 +145,7 @@ export default function Stats() {
         current.setDate(current.getDate() + 1);
     }
 
-    Object.values(filteredStats).flat().forEach((e: any) => {
+    (Object.values(filteredStats) as ClickEvent[][]).flat().forEach(e => {
         const date = new Date(e.timestamp).toLocaleDateString();
         if (dailyCounts[date] !== undefined) {
             dailyCounts[date]++;
