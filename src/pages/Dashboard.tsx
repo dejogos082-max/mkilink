@@ -400,10 +400,11 @@ export default function Dashboard() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-gray-400 hover:text-red-600"
+                          className="h-9 w-9 text-red-500 hover:bg-red-50 hover:text-red-700"
                           onClick={() => handleDelete(link.shortCode)}
+                          title="Excluir Link"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-5 w-5" />
                         </Button>
                       </div>
                     </div>
