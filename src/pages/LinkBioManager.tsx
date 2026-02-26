@@ -31,7 +31,6 @@ import {
   Heart,
   Upload
 } from "lucide-react";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Button } from "../components/Button";
 
 type LinkType = 'custom' | 'instagram' | 'onlyfans' | 'youtube' | 'spotify' | 'facebook' | 'steam' | 'tiktok';
@@ -388,36 +387,40 @@ export default function LinkBioManager() {
                                                     try {
                                                         setSaving(true);
                                                         
-                                                        const r2Client = new S3Client({
-                                                            region: "auto",
-                                                            endpoint: `https://${import.meta.env.VITE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-                                                            credentials: {
-                                                                accessKeyId: import.meta.env.VITE_R2_ACCESS_KEY_ID,
-                                                                secretAccessKey: import.meta.env.VITE_R2_SECRET_ACCESS_KEY,
-                                                            },
-                                                            forcePathStyle: true, // Common for S3-compatible storage
+                                                        // 1. Get presigned URL from our backend
+                                                        const res = await fetch('/api/upload-url', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                filename: file.name,
+                                                                contentType: file.type
+                                                            })
+                                                        });
+                                                        
+                                                        if (!res.ok) {
+                                                            const errorData = await res.json();
+                                                            throw new Error(errorData.error || 'Failed to get upload URL');
+                                                        }
+                                                        
+                                                        const { uploadUrl, publicUrl } = await res.json();
+
+                                                        // 2. Upload directly to R2 using the presigned URL
+                                                        const uploadRes = await fetch(uploadUrl, {
+                                                            method: 'PUT',
+                                                            body: file,
+                                                            headers: {
+                                                                'Content-Type': file.type
+                                                            }
                                                         });
 
-                                                        const key = `uploads/${Date.now()}-${file.name}`;
-                                                        const arrayBuffer = await file.arrayBuffer();
-                                                        const command = new PutObjectCommand({
-                                                            Bucket: import.meta.env.VITE_R2_BUCKET_NAME,
-                                                            Key: key,
-                                                            Body: new Uint8Array(arrayBuffer),
-                                                            ContentType: file.type,
-                                                        });
-
-                                                        await r2Client.send(command);
-                                                        const publicUrl = `${import.meta.env.VITE_R2_PUBLIC_URL}/${key}`;
+                                                        if (!uploadRes.ok) {
+                                                            throw new Error('Falha ao enviar arquivo para o Cloudflare R2. Verifique o CORS.');
+                                                        }
 
                                                         handleUpdateBio({ avatarUrl: publicUrl });
                                                     } catch (err: any) {
                                                         console.error(err);
-                                                        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-                                                            setError("Erro de CORS: Verifique se o seu bucket R2 permite requisições do seu domínio.");
-                                                        } else {
-                                                            setError(`Erro ao fazer upload: ${err.message || "Verifique as configurações do R2"}`);
-                                                        }
+                                                        setError(`Erro ao fazer upload: ${err.message || "Verifique as configurações do R2"}`);
                                                     } finally {
                                                         setSaving(false);
                                                     }
