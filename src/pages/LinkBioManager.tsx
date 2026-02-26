@@ -29,7 +29,8 @@ import {
   Twitter,
   Linkedin,
   Heart,
-  Upload
+  Upload,
+  Shield
 } from "lucide-react";
 import { Button } from "../components/Button";
 
@@ -85,7 +86,7 @@ export default function LinkBioManager() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-
+  
   // Form States
   const [activeTab, setActiveTab] = useState<'content' | 'appearance' | 'settings'>('content');
 
@@ -346,7 +347,7 @@ export default function LinkBioManager() {
                     className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${activeTab === 'settings' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                     <Lock className="inline-block w-4 h-4 mr-2" />
-                    Configurações
+                    Configurações Do Link Bio
                 </button>
             </div>
 
@@ -694,7 +695,7 @@ export default function LinkBioManager() {
                     </section>
                 ) : (
                     <section className="space-y-6">
-                        <h3 className="text-lg font-bold text-gray-900">Configurações</h3>
+                        <h3 className="text-lg font-bold text-gray-900">Configurações Do Link Bio</h3>
                         
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                             <div className="flex items-center justify-between">

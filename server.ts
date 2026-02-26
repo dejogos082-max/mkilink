@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, get } from "firebase/database";
+import { getDatabase, ref, get, set } from "firebase/database";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,6 +51,33 @@ async function startServer() {
       publicUrl: "https://cloud.ironvalecraft.shop"
     };
   }
+
+  // Admin Verification Endpoint
+  app.post("/api/admin/verify-code", async (req, res) => {
+    const { code, userId } = req.body;
+    const ADMIN_CODE = "362136";
+
+    if (!code || !userId) {
+      return res.status(400).json({ error: "Code and userId are required" });
+    }
+
+    if (code !== ADMIN_CODE) {
+      return res.status(401).json({ error: "Invalid code" });
+    }
+
+    try {
+      // Set admin role in Firebase Database
+      await set(ref(db, `users/${userId}/role`), "AdminUser");
+      
+      // Also set a custom claim if using Firebase Admin SDK (optional but good practice)
+      // For now, we'll stick to the database as requested context implies simple role assignment
+      
+      res.json({ success: true, message: "Admin role granted" });
+    } catch (error) {
+      console.error("Admin Verification Error:", error);
+      res.status(500).json({ error: "Failed to grant admin role" });
+    }
+  });
 
   // Generate Presigned URL for Upload
   app.post("/api/upload-url", async (req, res) => {

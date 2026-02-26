@@ -36,7 +36,24 @@ export default function Login() {
         return setError("Captcha verification failed. Please try again.");
       }
 
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Log Login History
+      try {
+        await fetch('/api/log-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: user.uid,
+                ip: "auto", // Handled by CF Function
+                userAgent: navigator.userAgent
+            })
+        });
+      } catch (logErr) {
+        console.error("Failed to log login:", logErr);
+      }
+
       navigate("/");
     } catch (err: any) {
       console.error(err);

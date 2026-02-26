@@ -6,6 +6,7 @@ import { Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
+import { detectAdBlock, AdBlockModal } from "../utils/antiAdblock";
 
 function AdsterraAd({ width, height, adKey }: { width: number; height: number; adKey: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,10 @@ export default function Redirect() {
   const [adCount, setAdCount] = useState(3);
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const captchaRef = useRef<HCaptcha>(null);
+  
+  // Secure Redirect State
+  const [redirectToken, setRedirectToken] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleCaptchaVerify = async (token: string) => {
     try {
@@ -85,6 +90,53 @@ export default function Redirect() {
       const msg = error.response?.data?.error || error.message;
       alert(`Erro de conexão com o servidor: ${msg}. Se estiver no Cloudflare Pages, você precisa configurar as Functions.`);
       captchaRef.current?.resetCaptcha();
+    }
+  };
+
+  // Initialize Secure Token
+  useEffect(() => {
+    if (shortId) {
+        fetch(`/api/redirect/init?linkId=${shortId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.token) setRedirectToken(data.token);
+            })
+            .catch(err => console.error("Failed to init secure redirect", err));
+    }
+  }, [shortId]);
+
+  const handleSecureRedirect = async () => {
+    if (!redirectToken) return;
+    setIsRedirecting(true);
+    
+    try {
+        const res = await fetch('/api/redirect/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: redirectToken })
+        });
+        
+        const data = await res.json();
+        
+        if (data.url) {
+            // Success!
+            if (smartLinkUrl) {
+                // SmartLink Logic
+                window.open(smartLinkUrl, '_blank');
+                setTimeout(() => {
+                    window.location.href = data.url;
+                }, 500);
+            } else {
+                window.location.href = data.url;
+            }
+        } else {
+            alert(data.error || "Erro ao validar redirecionamento");
+            setIsRedirecting(false);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Erro de conexão");
+        setIsRedirecting(false);
     }
   };
 
@@ -257,7 +309,12 @@ export default function Redirect() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 font-sans">
+    <div className="min-h-screen bg-gray-100 p-4 font-sans relative">
+      <AdBlockModal onContinue={() => {
+          // Optional: Track that user continued despite adblock
+          console.log("User continued with AdBlock");
+      }} />
+      
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Top Ad Banner - 728x90 */}
         <div className="hidden md:block">
@@ -351,24 +408,23 @@ export default function Redirect() {
                     animate={{ opacity: 1, scale: 1 }}
                   >
                     <p className="text-green-600 font-medium mb-2">Link Desbloqueado!</p>
-                    <a 
-                      href={smartLinkUrl || originalUrl}
-                      target={smartLinkUrl ? "_blank" : "_self"}
-                      rel={smartLinkUrl ? "noopener noreferrer" : undefined}
-                      onClick={(e) => {
-                        if (smartLinkUrl) {
-                           // If using smartlink, we open it in new tab, and redirect current tab to original
-                           // giving the user the ad experience + the content
-                           setTimeout(() => {
-                             window.location.href = originalUrl!;
-                           }, 500);
-                        }
-                      }}
-                      className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all w-full sm:w-auto"
+                    <button 
+                      onClick={handleSecureRedirect}
+                      disabled={isRedirecting}
+                      className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Continuar para o Link
-                      <ExternalLink className="ml-2 h-4 w-4" />
-                    </a>
+                      {isRedirecting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Validando...
+                          </>
+                      ) : (
+                          <>
+                            Continuar para o Link
+                            <ExternalLink className="ml-2 h-4 w-4" />
+                          </>
+                      )}
+                    </button>
                   </motion.div>
                 )}
               </div>
