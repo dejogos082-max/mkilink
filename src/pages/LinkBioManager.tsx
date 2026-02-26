@@ -359,17 +359,70 @@ export default function LinkBioManager() {
                             <div className="grid gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Foto de Perfil (URL)</label>
-                                    <div className="flex gap-2">
-                                        <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden shrink-0 relative group">
                                             <img src={bioData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
+                                                <ImageIcon className="w-4 h-4 text-white" />
+                                            </div>
                                         </div>
-                                        <input 
-                                            type="text" 
-                                            value={bioData.avatarUrl}
-                                            onChange={(e) => handleUpdateBio({ avatarUrl: e.target.value })}
-                                            className="flex-1 text-sm border-gray-300 rounded-lg"
-                                            placeholder="https://..."
-                                        />
+                                        <div className="flex-1 flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={bioData.avatarUrl}
+                                                onChange={(e) => handleUpdateBio({ avatarUrl: e.target.value })}
+                                                className="flex-1 text-sm border-gray-300 rounded-lg"
+                                                placeholder="https://..."
+                                            />
+                                            <input
+                                                type="file"
+                                                id="avatar-upload"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (!file) return;
+
+                                                    try {
+                                                        setSaving(true);
+                                                        // Get presigned URL
+                                                        const res = await fetch('/api/upload-url', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                filename: file.name,
+                                                                contentType: file.type
+                                                            })
+                                                        });
+                                                        
+                                                        if (!res.ok) throw new Error('Failed to get upload URL');
+                                                        const { uploadUrl, publicUrl } = await res.json();
+
+                                                        // Upload to R2
+                                                        await fetch(uploadUrl, {
+                                                            method: 'PUT',
+                                                            body: file,
+                                                            headers: { 'Content-Type': file.type }
+                                                        });
+
+                                                        handleUpdateBio({ avatarUrl: publicUrl });
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        setError("Erro ao fazer upload da imagem.");
+                                                    } finally {
+                                                        setSaving(false);
+                                                    }
+                                                }}
+                                            />
+                                            <Button 
+                                                variant="secondary" 
+                                                size="sm"
+                                                onClick={() => document.getElementById('avatar-upload')?.click()}
+                                                disabled={saving}
+                                            >
+                                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Upload"}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
