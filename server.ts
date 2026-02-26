@@ -4,8 +4,6 @@ import { createServer as createViteServer } from "vite";
 import axios from "axios";
 import path from "path";
 import { fileURLToPath } from "url";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,41 +12,6 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json()); // Parse JSON bodies
-
-  // R2 S3 Client
-  const R2 = new S3Client({
-    region: "auto",
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
-    },
-  });
-
-  // Generate Presigned URL for Upload
-  app.post("/api/upload-url", async (req, res) => {
-    try {
-      const { filename, contentType } = req.body;
-      if (!filename || !contentType) {
-        return res.status(400).json({ error: "Filename and contentType are required" });
-      }
-
-      const key = `uploads/${Date.now()}-${filename}`;
-      const command = new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: key,
-        ContentType: contentType,
-      });
-
-      const url = await getSignedUrl(R2, command, { expiresIn: 3600 });
-      const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
-
-      res.json({ uploadUrl: url, publicUrl });
-    } catch (error) {
-      console.error("R2 Presigned URL Error:", error);
-      res.status(500).json({ error: "Failed to generate upload URL" });
-    }
-  });
 
   // API Proxy for Adsterra
   app.get("/api/adsterra/smart-link", async (req, res) => {
