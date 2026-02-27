@@ -23,9 +23,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      
       if (user) {
+        // Check for user status
+        const statusRef = ref(db, `users/${user.uid}/status`);
+        onValue(statusRef, (snapshot) => {
+          const status = snapshot.val();
+          if (status === 'banned' || status === 'suspended') {
+            firebaseSignOut(auth);
+            setCurrentUser(null);
+            setIsAdmin(false);
+            setLoading(false);
+            alert(`Sua conta foi ${status === 'banned' ? 'banida' : 'suspensa'}. Entre em contato com o suporte.`);
+            return;
+          }
+        });
+
+        setCurrentUser(user);
+        
         // Check for admin role
         const roleRef = ref(db, `users/${user.uid}/role`);
         onValue(roleRef, (snapshot) => {
@@ -54,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } else {
+        setCurrentUser(null);
         setIsAdmin(false);
       }
       

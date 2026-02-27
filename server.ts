@@ -31,6 +31,33 @@ async function startServer() {
 
   app.use(express.json()); // Parse JSON bodies
 
+  // IP Banning Middleware
+  app.use(async (req, res, next) => {
+    try {
+      // Get client IP
+      const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      const ipString = Array.isArray(clientIp) ? clientIp[0] : clientIp;
+      
+      if (ipString) {
+        // Clean IP (remove ipv6 prefix if present for ipv4)
+        const cleanIp = ipString.replace(/^::ffff:/, '');
+        
+        const bannedIpsSnapshot = await get(ref(db, "banned_ips"));
+        if (bannedIpsSnapshot.exists()) {
+          const bannedIps = bannedIpsSnapshot.val();
+          for (const key in bannedIps) {
+            if (bannedIps[key].ip === cleanIp) {
+              return res.status(403).send("Acesso negado. Seu IP foi banido.");
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error checking banned IPs:", error);
+    }
+    next();
+  });
+
   // Helper to get R2 Config from Firebase
   async function getR2Config() {
     try {
@@ -55,22 +82,33 @@ async function startServer() {
   // Admin Verification Endpoint
   app.post("/api/admin/verify-code", async (req, res) => {
     const { code, userId } = req.body;
-    const ADMIN_CODE = "362136";
 
     if (!code || !userId) {
       return res.status(400).json({ error: "Code and userId are required" });
     }
 
-    if (code !== ADMIN_CODE) {
-      return res.status(401).json({ error: "Invalid code" });
-    }
-
     try {
+      // Check if code exists in database
+      const codesSnapshot = await get(ref(db, "admin_codes"));
+      let isValidCode = false;
+
+      if (codesSnapshot.exists()) {
+        const codesData = codesSnapshot.val();
+        for (const key in codesData) {
+          if (codesData[key].code === code) {
+            isValidCode = true;
+            break;
+          }
+        }
+      }
+
+      // Fallback to hardcoded code if no codes exist in DB yet
+      if (!isValidCode && code !== "362136") {
+        return res.status(401).json({ error: "Invalid code" });
+      }
+
       // Set admin role in Firebase Database
       await set(ref(db, `users/${userId}/role`), "AdminUser");
-      
-      // Also set a custom claim if using Firebase Admin SDK (optional but good practice)
-      // For now, we'll stick to the database as requested context implies simple role assignment
       
       res.json({ success: true, message: "Admin role granted" });
     } catch (error) {

@@ -16,6 +16,7 @@ import Monetization from "./pages/Monetization";
 import LinkBioManager from "./pages/LinkBioManager";
 import BioPage from "./pages/BioPage";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth()!;
@@ -116,6 +117,16 @@ export default function App() {
                     <PrivateRoute>
                       <Layout>
                         <Settings />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Admin />
                       </Layout>
                     </PrivateRoute>
                   }

@@ -61,16 +61,16 @@ export default function Register() {
       >
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-            Create an account
+            <span>Criar uma conta</span>
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Start shortening links for free
+            <span>Comece a encurtar links gratuitamente</span>
           </p>
         </div>
 
         {error && (
           <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
-            {error}
+            <span>{error}</span>
           </div>
         )}
 
@@ -112,16 +112,16 @@ export default function Register() {
           </div>
 
           <Button type="submit" className="w-full" isLoading={loading}>
-            Sign up
+            <span>Cadastrar</span>
           </Button>
 
           <p className="text-center text-sm text-gray-600">
-            Already have an account?{" "}
+            <span>Já tem uma conta?</span>{" "}
             <Link
               to="/login"
               className="font-medium text-indigo-600 hover:text-indigo-500"
             >
-              Sign in
+              <span>Entrar</span>
             </Link>
           </p>
         </form>

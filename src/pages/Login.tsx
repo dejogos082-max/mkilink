@@ -131,16 +131,16 @@ export default function Login() {
           >
             <div className="text-center">
               <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-                Bem-vindo de volta
+                <span>Bem-vindo de volta</span>
               </h2>
               <p className="mt-2 text-sm text-gray-600">
-                Entre para gerenciar seus links
+                <span>Entre para gerenciar seus links</span>
               </p>
             </div>
 
             {error && (
               <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
-                {error}
+                <span>{error}</span>
               </div>
             )}
 
@@ -174,16 +174,16 @@ export default function Login() {
               </div>
 
               <Button type="submit" className="w-full" isLoading={loading}>
-                Entrar
+                <span>Entrar</span>
               </Button>
 
               <p className="text-center text-sm text-gray-600">
-                Não tem uma conta?{" "}
+                <span>Não tem uma conta?</span>{" "}
                 <Link
                   to="/register"
                   className="font-medium text-indigo-600 hover:text-indigo-500"
                 >
-                  Cadastre-se
+                  <span>Cadastre-se</span>
                 </Link>
               </p>
             </form>
@@ -203,16 +203,16 @@ export default function Login() {
                 </svg>
               </div>
               <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-                Verificação em Duas Etapas
+                <span>Verificação em Duas Etapas</span>
               </h2>
               <p className="mt-2 text-sm text-gray-600">
-                Enviamos um código de 6 dígitos para o seu e-mail.
+                <span>Enviamos um código de 6 dígitos para o seu e-mail.</span>
               </p>
             </div>
 
             {error && (
               <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
-                {error}
+                <span>{error}</span>
               </div>
             )}
 
@@ -232,15 +232,15 @@ export default function Login() {
 
               <div className="space-y-3">
                 <Button type="submit" className="w-full" isLoading={mfaLoading}>
-                  Verificar Código
+                  <span>Verificar Código</span>
                 </Button>
                 <Button type="button" variant="ghost" className="w-full" onClick={handleCancelMfa}>
-                  Cancelar
+                  <span>Cancelar</span>
                 </Button>
               </div>
               
               <p className="text-center text-[10px] text-gray-400">
-                O código expira em 5 minutos.
+                <span>O código expira em 5 minutos.</span>
               </p>
             </form>
           </motion.div>

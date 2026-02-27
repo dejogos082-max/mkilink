@@ -1,47 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
-import { ref, push, set, onValue, query, orderByChild, equalTo, remove, update } from "firebase/database";
+import { ref, set, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { nanoid } from "nanoid";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
-import { motion, AnimatePresence } from "motion/react";
-import { Copy, ExternalLink, Trash2, BarChart2, Calendar, Settings, X } from "lucide-react";
-
-interface LinkData {
-  id: string;
-  originalUrl: string;
-  shortCode: string;
-  userId: string;
-  createdAt: number;
-  clicks: number;
-  settings?: {
-    adCount?: number;
-    duration?: number; // duration in seconds for the countdown
-    expiresAt?: number | null; // timestamp or null for never
-  };
-}
+import { motion } from "motion/react";
+import { Link } from "react-router-dom";
+import { Link as LinkIcon, ArrowRight, Zap, BarChart3, MousePointer2, Globe } from "lucide-react";
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
   const [url, setUrl] = useState("");
   const [customAlias, setCustomAlias] = useState("");
   const [loading, setLoading] = useState(false);
-  const [links, setLinks] = useState<LinkData[]>([]);
   const [error, setError] = useState("");
-  
-  // Search and Sort State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<'createdAt' | 'clicks' | 'shortCode'>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
-  // Settings Modal State
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [currentLinkSettings, setCurrentLinkSettings] = useState<LinkData | null>(null);
-  const [settingsForm, setSettingsForm] = useState({
-    adCount: 3,
-    duration: 15,
-    expiresIn: "never", // "never", "1h", "24h", "7d", "30d"
+  const [success, setSuccess] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    totalClicks: 0,
+    activeLinks: 0,
+    totalLinks: 0
   });
 
   useEffect(() => {
@@ -56,14 +34,17 @@ export default function Dashboard() {
     const unsubscribe = onValue(linksRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const linkList = Object.entries(data).map(([key, value]: [string, any]) => ({
-          id: key,
-          ...value,
-        }));
-        // Client-side sort by createdAt desc
-        setLinks(linkList.sort((a, b) => b.createdAt - a.createdAt));
+        const linkList = Object.values(data) as any[];
+        const totalClicks = linkList.reduce((acc, curr) => acc + (curr.clicks || 0), 0);
+        const activeLinks = linkList.filter(link => !link.settings?.expiresAt || link.settings.expiresAt > Date.now()).length;
+        
+        setStats({
+          totalClicks,
+          activeLinks,
+          totalLinks: linkList.length
+        });
       } else {
-        setLinks([]);
+        setStats({ totalClicks: 0, activeLinks: 0, totalLinks: 0 });
       }
     });
 
@@ -76,10 +57,10 @@ export default function Dashboard() {
 
     try {
       setError("");
+      setSuccess(null);
       setLoading(true);
 
       const shortCode = customAlias.trim() || nanoid(6);
-      
       const newLinkRef = ref(db, `short_links/${shortCode}`);
       
       await set(newLinkRef, {
@@ -91,182 +72,52 @@ export default function Dashboard() {
         settings: {
             adCount: 3,
             duration: 15,
-            expiresAt: null
+            expiresAt: null,
+            layout: 'default',
+            headerTitle: 'Valecraft'
         }
       });
 
+      setSuccess(shortCode);
       setUrl("");
       setCustomAlias("");
     } catch (err: any) {
       console.error(err);
-      setError("Failed to shorten link. " + err.message);
+      setError("Falha ao encurtar link. " + err.message);
     }
     setLoading(false);
   }
 
-  async function handleDelete(shortCode: string) {
-    if (!confirm("Tem certeza que deseja excluir este link?")) return;
-    try {
-      await remove(ref(db, `short_links/${shortCode}`));
-    } catch (err) {
-      console.error("Failed to delete", err);
-    }
-  }
-
-  function copyToClipboard(shortCode: string) {
-    const fullUrl = `${window.location.origin}/${shortCode}`;
-    navigator.clipboard.writeText(fullUrl);
-  }
-
-  const openSettings = (link: LinkData) => {
-    setCurrentLinkSettings(link);
-    setSettingsForm({
-        adCount: link.settings?.adCount || 3,
-        duration: link.settings?.duration || 15,
-        expiresIn: "never" // We don't easily reverse calculate this for now, just reset to default choice
-    });
-    setIsSettingsOpen(true);
-  };
-
-  const saveSettings = async () => {
-    if (!currentLinkSettings) return;
-
-    let expiresAt = null;
-    const now = Date.now();
-    if (settingsForm.expiresIn === "1h") expiresAt = now + 3600 * 1000;
-    if (settingsForm.expiresIn === "24h") expiresAt = now + 24 * 3600 * 1000;
-    if (settingsForm.expiresIn === "7d") expiresAt = now + 7 * 24 * 3600 * 1000;
-    if (settingsForm.expiresIn === "30d") expiresAt = now + 30 * 24 * 3600 * 1000;
-
-    try {
-        await update(ref(db, `short_links/${currentLinkSettings.shortCode}/settings`), {
-            adCount: Number(settingsForm.adCount),
-            duration: Math.max(15, Number(settingsForm.duration)), // Enforce min 15s
-            expiresAt: expiresAt
-        });
-        setIsSettingsOpen(false);
-    } catch (err) {
-        console.error("Failed to update settings", err);
-    }
-  };
-
-  // Filter and Sort Links
-  const filteredAndSortedLinks = links
-    .filter((link) => {
-      const query = searchQuery.toLowerCase();
-      return (
-        link.shortCode.toLowerCase().includes(query) ||
-        link.originalUrl.toLowerCase().includes(query)
-      );
-    })
-    .sort((a, b) => {
-      let comparison = 0;
-      if (sortBy === 'createdAt') comparison = a.createdAt - b.createdAt;
-      else if (sortBy === 'clicks') comparison = a.clicks - b.clicks;
-      else if (sortBy === 'shortCode') comparison = a.shortCode.localeCompare(b.shortCode);
-      
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
   return (
-    <div className="space-y-12 relative">
-      {/* Settings Modal */}
-      <AnimatePresence>
-        {isSettingsOpen && (
-            <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-            >
-                <motion.div 
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-                >
-                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h3 className="text-lg font-bold text-gray-900">Configurações do Link</h3>
-                        <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-gray-600">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-                    
-                    <div className="p-6 space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Quantidade de Anúncios (Página de Redirecionamento)</label>
-                            <select 
-                                value={settingsForm.adCount}
-                                onChange={(e) => setSettingsForm({...settingsForm, adCount: Number(e.target.value)})}
-                                className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
-                            >
-                                <option value={0}>Sem Anúncios</option>
-                                <option value={1}>Baixo (1 Anúncio)</option>
-                                <option value={3}>Médio (3 Anúncios)</option>
-                                <option value={5}>Alto (5 Anúncios)</option>
-                                <option value={10}>Máximo (10 Anúncios)</option>
-                            </select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Duração da Contagem Regressiva (Segundos)</label>
-                            <input 
-                                type="number" 
-                                min="15"
-                                max="60"
-                                value={settingsForm.duration}
-                                onChange={(e) => setSettingsForm({...settingsForm, duration: Math.max(15, Number(e.target.value))})}
-                                className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
-                            />
-                            <p className="text-xs text-gray-500">Mínimo 15 segundos</p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Expiração do Link</label>
-                            <select 
-                                value={settingsForm.expiresIn}
-                                onChange={(e) => setSettingsForm({...settingsForm, expiresIn: e.target.value})}
-                                className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
-                            >
-                                <option value="never">Nunca Expirar</option>
-                                <option value="1h">Expirar em 1 Hora</option>
-                                <option value="24h">Expirar em 24 Horas</option>
-                                <option value="7d">Expirar em 7 Dias</option>
-                                <option value="30d">Expirar em 30 Dias</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-3">
-                        <Button variant="secondary" className="flex-1" onClick={() => setIsSettingsOpen(false)}>Cancelar</Button>
-                        <Button className="flex-1" onClick={saveSettings}>Salvar Alterações</Button>
-                    </div>
-                </motion.div>
-            </motion.div>
-        )}
-      </AnimatePresence>
-
+    <div className="max-w-4xl mx-auto space-y-12">
       <div className="text-center space-y-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="inline-flex items-center justify-center p-3 bg-indigo-100 rounded-2xl text-indigo-600 mb-2"
+        >
+          <Zap className="w-8 h-8" />
+        </motion.div>
         <motion.h1 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl"
         >
-          Encurte seus Links
+          <span>Encurte seus Links</span>
         </motion.h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Crie links curtos e memoráveis em segundos. Rastreie cliques e gerencie suas URLs com facilidade.
+          <span>Crie links curtos e memoráveis em segundos. Rastreie cliques e gerencie suas URLs com facilidade.</span>
         </p>
       </div>
 
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-900/5"
+        className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-900/5"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-6 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Input
                 label="URL de Destino"
@@ -290,152 +141,110 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg"><span>{error}</span></p>}
+          
+          {success && (
+            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+                  <LinkIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-emerald-900"><span>Link criado com sucesso!</span></p>
+                  <p className="text-xs text-emerald-700"><span>{window.location.origin}/{success}</span></p>
+                </div>
+              </div>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/${success}`)}
+              >
+                <span>Copiar</span>
+              </Button>
+            </div>
+          )}
           
           <Button type="submit" className="w-full" size="lg" isLoading={loading}>
-            Encurtar URL
+            <span>Encurtar URL</span>
           </Button>
         </form>
       </motion.div>
 
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Seus Links</h2>
-          
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {/* Search Input */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Pesquisar links..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border-gray-200 bg-white px-4 py-2 pl-10 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
-              />
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
+        >
+          <div className="h-12 w-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+            <MousePointer2 className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium"><span>Total de Cliques</span></p>
+            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.totalClicks.toLocaleString()}</span></h3>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
+        >
+          <div className="h-12 w-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+            <Globe className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium"><span>Links Ativos</span></p>
+            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.activeLinks}</span></h3>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
+        >
+          <div className="h-12 w-12 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600">
+            <BarChart3 className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium"><span>Total de Links</span></p>
+            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.totalLinks}</span></h3>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-6">
+        <Link 
+          to="/links" 
+          className="group p-6 bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 hover:ring-indigo-500/30 transition-all"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-12 w-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+              <LinkIcon className="w-6 h-6" />
             </div>
+            <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900"><span>Gerenciar Links</span></h3>
+          <p className="text-sm text-gray-500"><span>Visualize, edite e acompanhe o desempenho de todos os seus links.</span></p>
+        </Link>
 
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="rounded-xl border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="createdAt">Data de Criação</option>
-                <option value="clicks">Cliques</option>
-                <option value="shortCode">Alias</option>
-              </select>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 border border-gray-200 bg-white"
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              >
-                {sortOrder === 'asc' ? (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                  </svg>
-                ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-1v12m0 0l-4-4m4 4l4-4" />
-                  </svg>
-                )}
-              </Button>
+        <Link 
+          to="/stats" 
+          className="group p-6 bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 hover:ring-indigo-500/30 transition-all"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-12 w-12 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600 group-hover:scale-110 transition-transform">
+              <Zap className="w-6 h-6" />
             </div>
+            <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-violet-500 group-hover:translate-x-1 transition-all" />
           </div>
-        </div>
-        
-        {links.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300">
-            <p className="text-gray-500">Nenhum link ainda. Crie o seu primeiro acima!</p>
-          </div>
-        ) : filteredAndSortedLinks.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300">
-            <p className="text-gray-500">Nenhum link encontrado para "{searchQuery}".</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <AnimatePresence>
-              {filteredAndSortedLinks.map((link) => (
-                <motion.div
-                  key={link.shortCode}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="group relative flex flex-col justify-between rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 transition-shadow hover:shadow-md"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <h3 className="font-bold text-indigo-600 flex items-center gap-2">
-                          /{link.shortCode}
-                          <ExternalLink className="h-3 w-3 opacity-50" />
-                          {link.settings?.expiresAt && Date.now() > link.settings.expiresAt && (
-                            <span className="ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-600 rounded-full">
-                              Expirado
-                            </span>
-                          )}
-                        </h3>
-                        <p className="text-xs text-gray-500 line-clamp-1 break-all" title={link.originalUrl}>
-                          {link.originalUrl}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs font-medium text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                          onClick={() => openSettings(link)}
-                        >
-                          <Settings className="h-3 w-3 mr-1.5" />
-                          Editar Link
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-red-500 hover:bg-red-50 hover:text-red-700"
-                          onClick={() => handleDelete(link.shortCode)}
-                          title="Excluir Link"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <BarChart2 className="h-3 w-3" />
-                        {link.clicks} cliques
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(link.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-gray-100">
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => copyToClipboard(link.shortCode)}
-                    >
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copiar Link
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
+          <h3 className="text-lg font-bold text-gray-900"><span>Ver Estatísticas</span></h3>
+          <p className="text-sm text-gray-500"><span>Análises detalhadas de cliques, origens e dispositivos.</span></p>
+        </Link>
       </div>
     </div>
   );

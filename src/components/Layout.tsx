@@ -76,7 +76,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   </Button>
                 </Link>
                 <span className="hidden text-sm text-gray-600 sm:inline-block">
-                  {currentUser.email}
+                  <span>{currentUser.email}</span>
                 </span>
                 <Button variant="ghost" size="sm" onClick={() => logout()} className="hidden sm:flex">
                   <span className="flex items-center">
@@ -89,10 +89,14 @@ export function Layout({ children }: { children: ReactNode }) {
               !isAuthPage && (
                 <div className="flex gap-2">
                   <Link to="/login">
-                    <Button variant="ghost">Entrar</Button>
+                    <Button variant="ghost">
+                      <span>Entrar</span>
+                    </Button>
                   </Link>
                   <Link to="/register">
-                    <Button>Começar</Button>
+                    <Button>
+                      <span>Começar</span>
+                    </Button>
                   </Link>
                 </div>
               )

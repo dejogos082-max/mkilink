@@ -86,6 +86,7 @@ export default function LinkBioManager() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
   // Form States
   const [activeTab, setActiveTab] = useState<'content' | 'appearance' | 'settings'>('content');
@@ -194,11 +195,12 @@ export default function LinkBioManager() {
   };
 
   const handleDeleteBio = async () => {
-    if (!bioData || !window.confirm("Tem certeza? Isso apagará seu Link Bio permanentemente.")) return;
+    if (!bioData) return;
     setSaving(true);
     try {
         await remove(ref(db, `link_bios/${bioData.id}`));
         setBioData(null);
+        setIsDeleteModalOpen(false);
     } catch (e) {
         console.error(e);
     } finally {
@@ -304,6 +306,45 @@ export default function LinkBioManager() {
   // Editor View
   return (
     <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-100px)]">
+        {/* Delete Confirmation Modal */}
+        <AnimatePresence>
+            {isDeleteModalOpen && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                >
+                    <motion.div 
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center"
+                    >
+                        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                            <Trash2 className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Link Bio</h3>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Tem certeza que deseja excluir sua página permanentemente? Esta ação não pode ser desfeita.
+                        </p>
+                        <div className="flex gap-3">
+                            <Button variant="secondary" className="flex-1" onClick={() => setIsDeleteModalOpen(false)}>
+                                <span>Cancelar</span>
+                            </Button>
+                            <Button 
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0" 
+                                onClick={handleDeleteBio}
+                                isLoading={saving}
+                            >
+                                <span>Excluir</span>
+                            </Button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         {/* Editor Panel */}
         <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             {/* Header */}
@@ -320,7 +361,7 @@ export default function LinkBioManager() {
                         {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         <span className="ml-2 hidden sm:inline">Copiar Link</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleDeleteBio} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                    <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>

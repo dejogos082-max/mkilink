@@ -19,7 +19,8 @@ import {
   Filter,
   Link as LinkIcon,
   MoreVertical,
-  CheckCircle2
+  CheckCircle2,
+  Check
 } from "lucide-react";
 
 interface LinkData {
@@ -33,6 +34,8 @@ interface LinkData {
     adCount?: number;
     duration?: number;
     expiresAt?: number | null;
+    layout?: 'default' | 'header';
+    headerTitle?: string;
   };
 }
 
@@ -53,10 +56,13 @@ export default function LinksManager() {
   
   // Edit States
   const [currentLink, setCurrentLink] = useState<LinkData | null>(null);
+  const [linkToDelete, setLinkToDelete] = useState<string | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     adCount: 3,
     duration: 15,
     expiresIn: "never",
+    layout: "default" as 'default' | 'header',
+    headerTitle: "",
   });
 
   // Search & Filter
@@ -66,6 +72,7 @@ export default function LinksManager() {
   
   // Toast
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -135,10 +142,14 @@ export default function LinksManager() {
   };
 
   const handleDelete = async (shortCode: string) => {
-    if (!confirm("Tem certeza que deseja excluir este link permanentemente?")) return;
     try {
-      await remove(ref(db, `short_links/${shortCode}`));
+      // Delete link and its stats
+      await Promise.all([
+        remove(ref(db, `short_links/${shortCode}`)),
+        remove(ref(db, `click_stats/${shortCode}`))
+      ]);
       showToast("Link excluído com sucesso!");
+      setLinkToDelete(null);
     } catch (err) {
       console.error("Failed to delete", err);
       showToast("Erro ao excluir link", "error");
@@ -148,6 +159,8 @@ export default function LinksManager() {
   const copyToClipboard = (shortCode: string) => {
     const fullUrl = `${window.location.origin}/${shortCode}`;
     navigator.clipboard.writeText(fullUrl);
+    setCopiedId(shortCode);
+    setTimeout(() => setCopiedId(null), 2000);
     showToast("Link copiado para a área de transferência!");
   };
 
@@ -156,7 +169,9 @@ export default function LinksManager() {
     setSettingsForm({
         adCount: link.settings?.adCount ?? 3,
         duration: link.settings?.duration ?? 15,
-        expiresIn: "never"
+        expiresIn: "never",
+        layout: link.settings?.layout ?? 'default',
+        headerTitle: link.settings?.headerTitle ?? "Valecraft"
     });
     setIsEditModalOpen(true);
   };
@@ -176,7 +191,9 @@ export default function LinksManager() {
         await update(ref(db, `short_links/${currentLink.shortCode}/settings`), {
             adCount: Number(settingsForm.adCount),
             duration: Math.max(15, Number(settingsForm.duration)),
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            layout: settingsForm.layout,
+            headerTitle: settingsForm.headerTitle
         });
         setIsEditModalOpen(false);
         showToast("Configurações salvas com sucesso!");
@@ -219,7 +236,7 @@ export default function LinksManager() {
             }`}
           >
             {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <X className="w-4 h-4" />}
-            {toast.message}
+            <span>{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -229,13 +246,13 @@ export default function LinksManager() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <LinkIcon className="w-6 h-6 text-indigo-600" />
-            Gerenciador de Links
+            <span>Gerenciador de Links</span>
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Crie, edite e acompanhe todos os seus links curtos.</p>
+          <p className="text-sm text-gray-500 mt-1"><span>Crie, edite e acompanhe todos os seus links curtos.</span></p>
         </div>
         <Button onClick={() => setIsCreateModalOpen(true)} className="shrink-0 shadow-md shadow-indigo-500/20">
           <Plus className="w-4 h-4 mr-2" />
-          Novo Link
+          <span>Novo Link</span>
         </Button>
       </div>
 
@@ -301,11 +318,11 @@ export default function LinksManager() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50/50 border-b border-gray-100">
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Link Curto</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Destino Original</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliques</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Criado em</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Ações</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"><span>Link Curto</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell"><span>Destino Original</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"><span>Cliques</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"><span>Criado em</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right"><span>Ações</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -321,17 +338,24 @@ export default function LinksManager() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-indigo-600">/{link.shortCode}</span>
+                          <span className="font-medium text-indigo-600"><span>/{link.shortCode}</span></span>
                           <button 
                             onClick={() => copyToClipboard(link.shortCode)}
-                            className="text-gray-400 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100"
+                            className={`transition-colors flex items-center gap-1 ${copiedId === link.shortCode ? 'text-green-500 opacity-100' : 'text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}
                             title="Copiar Link"
                           >
-                            <Copy className="w-3.5 h-3.5" />
+                            {copiedId === link.shortCode ? (
+                              <>
+                                <Check className="w-3.5 h-3.5" />
+                                <span className="text-xs font-medium">Copiado!</span>
+                              </>
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
                           </button>
                           {link.settings?.expiresAt && Date.now() > link.settings.expiresAt && (
                             <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-600 rounded-full">
-                              Expirado
+                              <span>Expirado</span>
                             </span>
                           )}
                         </div>
@@ -339,7 +363,7 @@ export default function LinksManager() {
                       <td className="px-6 py-4 hidden md:table-cell">
                         <div className="flex items-center gap-2 max-w-[200px] lg:max-w-[300px]">
                           <span className="text-sm text-gray-500 truncate" title={link.originalUrl}>
-                            {link.originalUrl}
+                            <span>{link.originalUrl}</span>
                           </span>
                           <a href={link.originalUrl} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-gray-600 shrink-0">
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -349,11 +373,11 @@ export default function LinksManager() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
                           <BarChart2 className="w-4 h-4 text-gray-400" />
-                          {link.clicks.toLocaleString()}
+                          <span>{link.clicks.toLocaleString()}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 hidden sm:table-cell text-sm text-gray-500">
-                        {new Date(link.createdAt).toLocaleDateString()}
+                        <span>{new Date(link.createdAt).toLocaleDateString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -364,13 +388,13 @@ export default function LinksManager() {
                             onClick={() => openEditModal(link)}
                           >
                             <Settings className="w-4 h-4 sm:mr-1.5" />
-                            <span className="hidden sm:inline">Editar</span>
+                            <span className="hidden sm:inline"><span>Editar</span></span>
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => handleDelete(link.shortCode)}
+                            onClick={() => setLinkToDelete(link.shortCode)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -387,6 +411,43 @@ export default function LinksManager() {
 
       {/* Create Link Modal */}
       <AnimatePresence>
+        {linkToDelete && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Link</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Tem certeza que deseja excluir este link permanentemente? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={() => setLinkToDelete(null)}>
+                  <span>Cancelar</span>
+                </Button>
+                <Button 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0" 
+                  onClick={() => handleDelete(linkToDelete)}
+                >
+                  <span>Excluir</span>
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {isCreateModalOpen && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -401,7 +462,7 @@ export default function LinksManager() {
               className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
             >
               <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <h3 className="text-lg font-bold text-gray-900">Criar Novo Link</h3>
+                <h3 className="text-lg font-bold text-gray-900"><span>Criar Novo Link</span></h3>
                 <button onClick={() => setIsCreateModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
                 </button>
@@ -426,14 +487,14 @@ export default function LinksManager() {
                   title="Apenas letras, números, hífens e sublinhados permitidos"
                 />
                 
-                {formError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{formError}</p>}
+                {formError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg"><span>{formError}</span></p>}
                 
                 <div className="pt-4 flex gap-3">
                   <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsCreateModalOpen(false)}>
-                    Cancelar
+                    <span>Cancelar</span>
                   </Button>
                   <Button type="submit" className="flex-1" isLoading={isSubmitting}>
-                    Criar Link
+                    <span>Criar Link</span>
                   </Button>
                 </div>
               </form>
@@ -459,8 +520,8 @@ export default function LinksManager() {
             >
               <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Configurações do Link</h3>
-                  <p className="text-xs text-indigo-600 font-medium mt-1">/{currentLink.shortCode}</p>
+                  <h3 className="text-lg font-bold text-gray-900"><span>Configurações do Link</span></h3>
+                  <p className="text-xs text-indigo-600 font-medium mt-1"><span>/{currentLink.shortCode}</span></p>
                 </div>
                 <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
@@ -469,7 +530,32 @@ export default function LinksManager() {
               
               <div className="p-6 space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Quantidade de Anúncios</label>
+                  <label className="text-sm font-medium text-gray-700"><span>Layout da Página</span></label>
+                  <select 
+                    value={settingsForm.layout}
+                    onChange={(e) => setSettingsForm({...settingsForm, layout: e.target.value as any})}
+                    className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                  >
+                    <option value="default">Padrão (Centralizado)</option>
+                    <option value="header">Cabeçalho (Nome + Contador no topo)</option>
+                  </select>
+                </div>
+
+                {settingsForm.layout === 'header' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700"><span>Título do Cabeçalho</span></label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.headerTitle}
+                      onChange={(e) => setSettingsForm({...settingsForm, headerTitle: e.target.value})}
+                      placeholder="Ex: Valecraft"
+                      className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700"><span>Quantidade de Anúncios</span></label>
                   <select 
                     value={settingsForm.adCount}
                     onChange={(e) => setSettingsForm({...settingsForm, adCount: Number(e.target.value)})}
@@ -484,7 +570,7 @@ export default function LinksManager() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Duração da Contagem (Segundos)</label>
+                  <label className="text-sm font-medium text-gray-700"><span>Duração da Contagem (Segundos)</span></label>
                   <input 
                     type="number" 
                     min="15"
@@ -493,11 +579,11 @@ export default function LinksManager() {
                     onChange={(e) => setSettingsForm({...settingsForm, duration: Math.max(15, Number(e.target.value))})}
                     className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
                   />
-                  <p className="text-xs text-gray-500">Mínimo 15 segundos para validação segura.</p>
+                  <p className="text-xs text-gray-500"><span>Mínimo 15 segundos para validação segura.</span></p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Expiração do Link</label>
+                  <label className="text-sm font-medium text-gray-700"><span>Expiração do Link</span></label>
                   <select 
                     value={settingsForm.expiresIn}
                     onChange={(e) => setSettingsForm({...settingsForm, expiresIn: e.target.value})}
@@ -513,8 +599,8 @@ export default function LinksManager() {
               </div>
 
               <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-3">
-                <Button variant="secondary" className="flex-1" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
-                <Button className="flex-1" onClick={handleSaveSettings} isLoading={isSubmitting}>Salvar Alterações</Button>
+                <Button variant="secondary" className="flex-1" onClick={() => setIsEditModalOpen(false)}><span>Cancelar</span></Button>
+                <Button className="flex-1" onClick={handleSaveSettings} isLoading={isSubmitting}><span>Salvar Alterações</span></Button>
               </div>
             </motion.div>
           </motion.div>
