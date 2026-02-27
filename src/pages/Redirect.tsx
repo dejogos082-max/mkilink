@@ -1,70 +1,74 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";
 import { ref, runTransaction, push, set } from "firebase/database";
 import { Loader2, ExternalLink, AlertCircle } from "lucide-react";
-import { motion } from "motion/react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 import { detectAdBlock, AdBlockModal } from "../utils/antiAdblock";
+import { HCaptchaWrapper } from "../components/HCaptchaWrapper";
 
-function AdsterraAd({ width, height, adKey }: { width: number; height: number; adKey: string }) {
+const AdsterraAd = React.memo(({ width, height, adKey }: { width: number; height: number; adKey: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     
-    // Clear previous content to prevent duplicates
-    containerRef.current.innerHTML = '';
+    try {
+        // Clear previous content to prevent duplicates
+        containerRef.current.innerHTML = '';
 
-    const conf = {
-        'key' : adKey,
-        'format' : 'iframe',
-        'height' : height,
-        'width' : width,
-        'params' : {}
-    };
+        const conf = {
+            'key' : adKey,
+            'format' : 'iframe',
+            'height' : height,
+            'width' : width,
+            'params' : {}
+        };
 
-    const scriptUrl = `https://www.highperformanceformat.com/${adKey}/invoke.js`;
+        const scriptUrl = `https://www.highperformanceformat.com/${adKey}/invoke.js`;
 
-    const iframe = document.createElement('iframe');
-    iframe.width = `${width}`;
-    iframe.height = `${height}`;
-    iframe.style.border = 'none';
-    iframe.style.overflow = 'hidden';
-    iframe.scrolling = 'no';
-    
-    containerRef.current.appendChild(iframe);
-    
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-        doc.open();
-        doc.write(`
-            <html>
-            <head></head>
-            <body style="margin:0;padding:0;display:flex;justify-content:center;align-items:center;">
-                <script>
-                    atOptions = ${JSON.stringify(conf)};
-                </script>
-                <script type="text/javascript" src="${scriptUrl}"></script>
-            </body>
-            </html>
-        `);
-        doc.close();
+        const iframe = document.createElement('iframe');
+        iframe.width = `${width}`;
+        iframe.height = `${height}`;
+        iframe.style.border = 'none';
+        iframe.style.overflow = 'hidden';
+        iframe.scrolling = 'no';
+        
+        containerRef.current.appendChild(iframe);
+        
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open();
+            doc.write(`
+                <html>
+                <head></head>
+                <body style="margin:0;padding:0;display:flex;justify-content:center;align-items:center;">
+                    <script>
+                        atOptions = ${JSON.stringify(conf)};
+                    </script>
+                    <script type="text/javascript" src="${scriptUrl}"></script>
+                </body>
+                </html>
+            `);
+            doc.close();
+        }
+    } catch (e) {
+        console.error("AdsterraAd Error:", e);
     }
 
   }, [adKey, height, width]);
 
   return <div ref={containerRef} className="flex justify-center items-center my-4 bg-gray-50 rounded-lg overflow-hidden" style={{ minHeight: height, minWidth: width }} />;
-}
+});
 
 export default function Redirect() {
   const { shortId } = useParams();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(15);
-  const [initialCountdown, setInitialCountdown] = useState(15);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [initialCountdown, setInitialCountdown] = useState<number | null>(null);
   const [hasClickedAd, setHasClickedAd] = useState(false);
   const [smartLinkUrl, setSmartLinkUrl] = useState<string | null>(null);
   const [adCount, setAdCount] = useState(3);
@@ -208,6 +212,10 @@ export default function Redirect() {
             if (typeof data.settings.duration === 'number') {
                 setCountdown(data.settings.duration);
                 setInitialCountdown(data.settings.duration);
+            } else {
+                // Default if not set in DB
+                setCountdown(15);
+                setInitialCountdown(15);
             }
             if (typeof data.settings.adCount === 'number') {
                 setAdCount(data.settings.adCount);
@@ -217,6 +225,10 @@ export default function Redirect() {
                 setError("This link has expired.");
                 setOriginalUrl(null);
             }
+          } else {
+             // Default if no settings
+             setCountdown(15);
+             setInitialCountdown(15);
           }
         } else {
           setError("Link not found");
@@ -229,7 +241,7 @@ export default function Redirect() {
   }, [shortId]);
 
   useEffect(() => {
-    if (!originalUrl) return;
+    if (!originalUrl || countdown === null) return;
 
     // Adsterra Popunder Script
     const popunderScript = document.createElement('script');
@@ -328,11 +340,7 @@ export default function Redirect() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Main Content Area */}
           <div className="md:col-span-2 space-y-6">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl shadow-xl p-8 text-center ring-1 ring-gray-900/5"
-            >
+            <div className="bg-white rounded-2xl shadow-xl p-8 text-center ring-1 ring-gray-900/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
                 Seu link está quase pronto!
               </h1>
@@ -352,21 +360,29 @@ export default function Redirect() {
                       cx="64"
                       cy="64"
                     />
-                    <circle
-                      className="text-indigo-600 transition-all duration-1000 ease-linear"
-                      strokeWidth="8"
-                      strokeDasharray={365}
-                      strokeDashoffset={365 - (365 * (initialCountdown - countdown)) / initialCountdown}
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="transparent"
-                      r="58"
-                      cx="64"
-                      cy="64"
-                    />
+                    {countdown !== null && (
+                      <circle
+                        className="text-indigo-600 transition-all duration-1000 ease-linear"
+                        strokeWidth="8"
+                        strokeDasharray={365}
+                        strokeDashoffset={
+                          initialCountdown && initialCountdown > 0
+                            ? 365 - (365 * (initialCountdown - countdown)) / initialCountdown
+                            : 0
+                        }
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r="58"
+                        cx="64"
+                        cy="64"
+                      />
+                    )}
                   </svg>
                   <div className="absolute top-0 left-0 h-full w-full flex items-center justify-center">
-                    <span className="text-4xl font-bold text-gray-900">{countdown}</span>
+                    <span className="text-4xl font-bold text-gray-900">
+                      {countdown !== null ? countdown : <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -374,39 +390,35 @@ export default function Redirect() {
               <div className="space-y-4">
                 {/* Always show Captcha if not verified */}
                 {!isCaptchaVerified && (
-                  <div className="flex justify-center my-4">
-                    <HCaptcha
-                      sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"}
-                      onVerify={handleCaptchaVerify}
-                      ref={captchaRef}
-                    />
+                  <div className="flex justify-center my-4 min-h-[78px]">
+                    <HCaptchaWrapper>
+                      <HCaptcha
+                        sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"}
+                        onVerify={handleCaptchaVerify}
+                        ref={captchaRef}
+                      />
+                    </HCaptchaWrapper>
                   </div>
                 )}
 
-                {countdown > 0 ? (
+                {countdown !== null && countdown > 0 ? (
                   <p className="text-sm text-gray-400">
                     Por favor aguarde {countdown} segundos...
                   </p>
-                ) : !isCaptchaVerified ? (
+                ) : countdown === 0 ? (
+                  !isCaptchaVerified ? (
                    <p className="text-sm text-red-500 font-medium">
                      Por favor complete o captcha acima para continuar.
                    </p>
-                ) : !hasClickedAd ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl"
-                  >
+                  ) : !hasClickedAd ? (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl animate-in fade-in zoom-in duration-300">
                     <p className="text-yellow-800 font-bold text-lg mb-2">Link Bloqueado</p>
                     <p className="text-yellow-700">
                       Por favor <span className="font-bold underline">clique em qualquer anúncio</span> para desbloquear seu link de destino.
                     </p>
-                  </motion.div>
+                  </div>
                 ) : (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
+                  <div className="animate-in fade-in zoom-in duration-300">
                     <p className="text-green-600 font-medium mb-2">Link Desbloqueado!</p>
                     <button 
                       onClick={handleSecureRedirect}
@@ -425,10 +437,11 @@ export default function Redirect() {
                           </>
                       )}
                     </button>
-                  </motion.div>
-                )}
+                  </div>
+                )
+              ) : null}
               </div>
-            </motion.div>
+            </div>
 
             {/* Content Ad - 468x60 */}
             {adCount >= 3 && (

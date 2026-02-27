@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { Layout } from "./components/Layout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -24,84 +25,86 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SettingsProvider>
-        <Router>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<Layout><Login /></Layout>} />
-            <Route path="/register" element={<Layout><Register /></Layout>} />
-            
-            {/* Public Bio Page - No Layout, standalone */}
-            <Route path="/bio/:slug" element={<BioPage />} />
-            
-            {/* Redirect Route - No Layout usually, or minimal layout */}
-            <Route path="/:shortId" element={<Redirect />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <SettingsProvider>
+          <Router>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/login" element={<Layout><Login /></Layout>} />
+              <Route path="/register" element={<Layout><Register /></Layout>} />
+              
+              {/* Public Bio Page - No Layout, standalone */}
+              <Route path="/bio/:slug" element={<BioPage />} />
+              
+              {/* Redirect Route - No Layout usually, or minimal layout */}
+              <Route path="/:shortId" element={<Redirect />} />
 
-            {/* Protected Routes */}
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/menu"
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Menu />
-                  </Layout>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/stats"
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Stats />
-                  </Layout>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/monetization"
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Monetization />
-                  </Layout>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/link-bio"
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <LinkBioManager />
-                  </Layout>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Settings />
-                  </Layout>
-                </PrivateRoute>
-              }
-            />
-          </Routes>
-        </Router>
-      </SettingsProvider>
-    </AuthProvider>
+              {/* Protected Routes */}
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Dashboard />
+                    </Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/menu"
+                element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Menu />
+                    </Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/stats"
+                element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Stats />
+                    </Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/monetization"
+                element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Monetization />
+                    </Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/link-bio"
+                element={
+                  <PrivateRoute>
+                    <Layout>
+                      <LinkBioManager />
+                    </Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Settings />
+                    </Layout>
+                  </PrivateRoute>
+                }
+              />
+            </Routes>
+          </Router>
+        </SettingsProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
