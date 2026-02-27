@@ -7,6 +7,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 import { detectAdBlock, AdBlockModal } from "../utils/antiAdblock";
 import { HCaptchaWrapper } from "../components/HCaptchaWrapper";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const AdsterraAd = React.memo(({ width, height, adKey }: { width: number; height: number; adKey: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,13 +63,25 @@ const AdsterraAd = React.memo(({ width, height, adKey }: { width: number; height
   return <div ref={containerRef} className="flex justify-center items-center my-4 bg-gray-50 rounded-lg overflow-hidden" style={{ minHeight: height, minWidth: width }} />;
 });
 
+const AdFallback = ({ width, height }: { width: number, height: number }) => (
+    <div className="bg-gray-50 animate-pulse rounded-lg mx-auto my-4 flex items-center justify-center text-gray-300 text-xs" style={{ width, height }}>
+        Anúncio
+    </div>
+);
+
+const SafeAdsterraAd = (props: { width: number; height: number; adKey: string }) => (
+    <ErrorBoundary fallback={<AdFallback width={props.width} height={props.height} />}>
+        <AdsterraAd {...props} />
+    </ErrorBoundary>
+);
+
 export default function Redirect() {
   const { shortId } = useParams();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [initialCountdown, setInitialCountdown] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(15);
+  const [initialCountdown, setInitialCountdown] = useState(15);
   const [hasClickedAd, setHasClickedAd] = useState(false);
   const [smartLinkUrl, setSmartLinkUrl] = useState<string | null>(null);
   const [adCount, setAdCount] = useState(3);
@@ -209,11 +222,11 @@ export default function Redirect() {
 
           // Apply Settings
           if (data.settings) {
-            if (typeof data.settings.duration === 'number') {
+            if (typeof data.settings.duration === 'number' && data.settings.duration > 0) {
                 setCountdown(data.settings.duration);
                 setInitialCountdown(data.settings.duration);
             } else {
-                // Default if not set in DB
+                // Fallback safe default
                 setCountdown(15);
                 setInitialCountdown(15);
             }
@@ -225,10 +238,6 @@ export default function Redirect() {
                 setError("This link has expired.");
                 setOriginalUrl(null);
             }
-          } else {
-             // Default if no settings
-             setCountdown(15);
-             setInitialCountdown(15);
           }
         } else {
           setError("Link not found");
@@ -241,20 +250,28 @@ export default function Redirect() {
   }, [shortId]);
 
   useEffect(() => {
-    if (!originalUrl || countdown === null) return;
+    if (!originalUrl) return;
 
     // Adsterra Popunder Script
-    const popunderScript = document.createElement('script');
-    popunderScript.src = import.meta.env.VITE_ADSTERRA_POPUNDER_URL || "https://pl28790863.effectivegatecpm.com/68/3b/77/683b770e844c241a13aeb7420291d24a.js";
-    popunderScript.async = true;
-    document.body.appendChild(popunderScript);
+    try {
+        const popunderScript = document.createElement('script');
+        popunderScript.src = import.meta.env.VITE_ADSTERRA_POPUNDER_URL || "https://pl28790863.effectivegatecpm.com/68/3b/77/683b770e844c241a13aeb7420291d24a.js";
+        popunderScript.async = true;
+        document.body.appendChild(popunderScript);
+    } catch (e) {
+        console.error("Popunder error", e);
+    }
 
     // RTMark Script
-    const rtScript = document.createElement('script');
-    const rtPartnerId = import.meta.env.VITE_RTMARK_PARTNER_ID || "d5d41e36a76e12bf7a278e7cbfef774d16aaeb5d8929f02ddc515d9fa0ebfbda";
-    rtScript.src = `https://my.rtmark.net/p.js?f=sync&lr=1&partner=${rtPartnerId}`;
-    rtScript.defer = true;
-    document.body.appendChild(rtScript);
+    try {
+        const rtScript = document.createElement('script');
+        const rtPartnerId = import.meta.env.VITE_RTMARK_PARTNER_ID || "d5d41e36a76e12bf7a278e7cbfef774d16aaeb5d8929f02ddc515d9fa0ebfbda";
+        rtScript.src = `https://my.rtmark.net/p.js?f=sync&lr=1&partner=${rtPartnerId}`;
+        rtScript.defer = true;
+        document.body.appendChild(rtScript);
+    } catch (e) {
+        console.error("RTMark error", e);
+    }
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -269,16 +286,7 @@ export default function Redirect() {
 
     return () => {
       clearInterval(timer);
-      try {
-        if (document.body.contains(popunderScript)) {
-          document.body.removeChild(popunderScript);
-        }
-        if (document.body.contains(rtScript)) {
-          document.body.removeChild(rtScript);
-        }
-      } catch (e) {
-        // ignore
-      }
+      // Cleanup scripts if possible/necessary
     };
   }, [originalUrl]);
 
@@ -330,11 +338,11 @@ export default function Redirect() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Top Ad Banner - 728x90 */}
         <div className="hidden md:block">
-            <AdsterraAd width={728} height={90} adKey={import.meta.env.VITE_ADSTERRA_KEY_728_90 || "0ca51050bd22ba2d41c5886673f1d125"} />
+            <SafeAdsterraAd width={728} height={90} adKey={import.meta.env.VITE_ADSTERRA_KEY_728_90 || "0ca51050bd22ba2d41c5886673f1d125"} />
         </div>
         {/* Mobile Fallback for Top Banner - 468x60 */}
         <div className="block md:hidden">
-            <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
+            <SafeAdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -360,29 +368,21 @@ export default function Redirect() {
                       cx="64"
                       cy="64"
                     />
-                    {countdown !== null && (
-                      <circle
-                        className="text-indigo-600 transition-all duration-1000 ease-linear"
-                        strokeWidth="8"
-                        strokeDasharray={365}
-                        strokeDashoffset={
-                          initialCountdown && initialCountdown > 0
-                            ? 365 - (365 * (initialCountdown - countdown)) / initialCountdown
-                            : 0
-                        }
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="58"
-                        cx="64"
-                        cy="64"
-                      />
-                    )}
+                    <circle
+                      className="text-indigo-600 transition-all duration-1000 ease-linear"
+                      strokeWidth="8"
+                      strokeDasharray={365}
+                      strokeDashoffset={365 - (365 * (initialCountdown - countdown)) / initialCountdown}
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="58"
+                      cx="64"
+                      cy="64"
+                    />
                   </svg>
                   <div className="absolute top-0 left-0 h-full w-full flex items-center justify-center">
-                    <span className="text-4xl font-bold text-gray-900">
-                      {countdown !== null ? countdown : <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />}
-                    </span>
+                    <span className="text-4xl font-bold text-gray-900">{countdown}</span>
                   </div>
                 </div>
               </div>
@@ -401,16 +401,15 @@ export default function Redirect() {
                   </div>
                 )}
 
-                {countdown !== null && countdown > 0 ? (
+                {countdown > 0 ? (
                   <p className="text-sm text-gray-400">
                     Por favor aguarde {countdown} segundos...
                   </p>
-                ) : countdown === 0 ? (
-                  !isCaptchaVerified ? (
+                ) : !isCaptchaVerified ? (
                    <p className="text-sm text-red-500 font-medium">
                      Por favor complete o captcha acima para continuar.
                    </p>
-                  ) : !hasClickedAd ? (
+                ) : !hasClickedAd ? (
                   <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl animate-in fade-in zoom-in duration-300">
                     <p className="text-yellow-800 font-bold text-lg mb-2">Link Bloqueado</p>
                     <p className="text-yellow-700">
@@ -438,21 +437,20 @@ export default function Redirect() {
                       )}
                     </button>
                   </div>
-                )
-              ) : null}
+                )}
               </div>
             </div>
 
             {/* Content Ad - 468x60 */}
             {adCount >= 3 && (
-                <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
+                <SafeAdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
             )}
             
             {/* Additional Ads for High Count */}
             {adCount >= 5 && (
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
-                    <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
+                    <SafeAdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
+                    <SafeAdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
                  </div>
             )}
             
@@ -460,11 +458,11 @@ export default function Redirect() {
             {adCount >= 10 && (
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
-                        <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
+                        <SafeAdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
+                        <SafeAdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
                     </div>
-                    <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
-                    <AdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
+                    <SafeAdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
+                    <SafeAdsterraAd width={468} height={60} adKey={import.meta.env.VITE_ADSTERRA_KEY_468_60 || "fe708b38a538d928d198c016373d636b"} />
                 </div>
             )}
           </div>
@@ -473,17 +471,17 @@ export default function Redirect() {
           <div className="space-y-6 flex flex-col items-center md:block">
             {/* Sidebar Ad 1 - 300x250 */}
             {adCount >= 1 && (
-                <AdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
+                <SafeAdsterraAd width={300} height={250} adKey={import.meta.env.VITE_ADSTERRA_KEY_300_250 || "cc2b7dcc58facfed3b3f747cdeae7485"} />
             )}
             
             {/* Sidebar Ad 2 - 160x300 */}
             {adCount >= 3 && (
-                <AdsterraAd width={160} height={300} adKey={import.meta.env.VITE_ADSTERRA_KEY_160_300 || "40ba51d801ce3b95edba18997ac87495"} />
+                <SafeAdsterraAd width={160} height={300} adKey={import.meta.env.VITE_ADSTERRA_KEY_160_300 || "40ba51d801ce3b95edba18997ac87495"} />
             )}
             
             {/* Additional Sidebar Ads */}
             {adCount >= 5 && (
-                <AdsterraAd width={160} height={600} adKey={import.meta.env.VITE_ADSTERRA_KEY_160_300 || "40ba51d801ce3b95edba18997ac87495"} />
+                <SafeAdsterraAd width={160} height={600} adKey={import.meta.env.VITE_ADSTERRA_KEY_160_300 || "40ba51d801ce3b95edba18997ac87495"} />
             )}
           </div>
         </div>

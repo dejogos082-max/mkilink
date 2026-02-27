@@ -44,6 +44,27 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <p className="mb-6 text-sm text-gray-600">
             Ocorreu um erro inesperado ao carregar esta seção.
           </p>
+          
+          {this.state.error && (
+            <div className="mb-6 w-full max-w-md overflow-hidden rounded-lg border border-red-200 bg-red-50 text-left">
+              <details className="group">
+                <summary className="cursor-pointer bg-red-100 px-4 py-2 text-xs font-medium text-red-800 hover:bg-red-200 focus:outline-none">
+                  Ver detalhes do erro
+                </summary>
+                <div className="p-4">
+                  <p className="font-mono text-xs text-red-700 break-all">
+                    {this.state.error.toString()}
+                  </p>
+                  {this.state.error.stack && (
+                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[10px] text-red-600">
+                      {this.state.error.stack}
+                    </pre>
+                  )}
+                </div>
+              </details>
+            </div>
+          )}
+
           <button
             onClick={() => window.location.reload()}
             className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
