@@ -13,12 +13,21 @@ import { motion } from "motion/react";
 const menuItems = [
   {
     title: "Dashboard",
-    description: "Gerencie seus links curtos e acompanhe o desempenho.",
+    description: "Visão geral da sua conta e atalhos rápidos.",
     icon: LayoutDashboard,
     path: "/",
     color: "bg-indigo-500",
     textColor: "text-indigo-500",
     bgLight: "bg-indigo-50"
+  },
+  {
+    title: "Links",
+    description: "Gerencie, crie e edite todos os seus links curtos.",
+    icon: LinkIcon,
+    path: "/links",
+    color: "bg-violet-500",
+    textColor: "text-violet-500",
+    bgLight: "bg-violet-50"
   },
   {
     title: "Link na Bio",

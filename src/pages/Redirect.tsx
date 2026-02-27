@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";
-import { ref, runTransaction, push, set } from "firebase/database";
+import { ref, runTransaction, push, set, get } from "firebase/database";
 import { Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
@@ -123,8 +123,28 @@ export default function Redirect() {
   }, [shortId]);
 
   const handleSecureRedirect = async () => {
-    if (!redirectToken) return;
+    if (!redirectToken || !shortId) return;
     setIsRedirecting(true);
+    
+    // Increment clicks and record stats ONLY NOW when user actually follows the link
+    try {
+        const linkRef = ref(db, `short_links/${shortId}`);
+        runTransaction(linkRef, (link) => {
+            if (link) {
+                link.clicks = (link.clicks || 0) + 1;
+            }
+            return link;
+        });
+
+        const statsRef = ref(db, `click_stats/${shortId}`);
+        push(statsRef, {
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent,
+            referrer: document.referrer || 'direct'
+        });
+    } catch (e) {
+        console.error("Failed to record click", e);
+    }
     
     try {
         const res = await fetch('/api/redirect/validate', {
@@ -196,30 +216,12 @@ export default function Redirect() {
 
     const linkRef = ref(db, `short_links/${shortId}`);
 
-    // Use transaction to atomically increment clicks
-    runTransaction(linkRef, (link) => {
-      if (link) {
-        link.clicks = (link.clicks || 0) + 1;
-      }
-      return link;
-    })
-      .then((result) => {
-        if (result.snapshot.exists()) {
-          const data = result.snapshot.val();
+    get(linkRef)
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
           setOriginalUrl(data.originalUrl);
           
-          // Record detailed click stat
-          try {
-            const statsRef = ref(db, `click_stats/${shortId}`);
-            push(statsRef, {
-                timestamp: Date.now(),
-                userAgent: navigator.userAgent,
-                referrer: document.referrer || 'direct'
-            });
-          } catch (e) {
-            console.error("Failed to record stats", e);
-          }
-
           // Apply Settings
           if (data.settings) {
             if (typeof data.settings.duration === 'number' && data.settings.duration > 0) {

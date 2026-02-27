@@ -6,7 +6,7 @@ import { LogOut, Link as LinkIcon, Grid, X } from "lucide-react";
 import { Button } from "./Button";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isAdmin } = useAuth()!;
   const location = useLocation();
 
   const isAuthPage = ["/login", "/register"].includes(location.pathname);
@@ -25,27 +25,39 @@ export function Layout({ children }: { children: ReactNode }) {
             >
               <LinkIcon className="h-5 w-5" />
             </motion.div>
-            <motion.span 
-              initial={{ opacity: 0, x: -20, backgroundPosition: "0% 50%" }}
-              animate={{ 
-                opacity: 1, 
-                x: 0, 
-                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] 
-              }}
-              transition={{ 
-                opacity: { duration: 0.5, delay: 0.1 },
-                x: { duration: 0.5, delay: 0.1 },
-                backgroundPosition: {
-                  duration: 5,
-                  repeat: Infinity,
-                  ease: "linear"
-                }
-              }}
-              style={{ backgroundSize: "200% auto" }}
-              className="text-lg font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600"
-            >
-              MKI Links PRO
-            </motion.span>
+            <div className="flex flex-col">
+              <motion.span 
+                initial={{ opacity: 0, x: -20, backgroundPosition: "0% 50%" }}
+                animate={{ 
+                  opacity: 1, 
+                  x: 0, 
+                  backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] 
+                }}
+                transition={{ 
+                  opacity: { duration: 0.5, delay: 0.1 },
+                  x: { duration: 0.5, delay: 0.1 },
+                  backgroundPosition: {
+                    duration: 5,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }
+                }}
+                style={{ backgroundSize: "200% auto" }}
+                className="text-lg font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 leading-none"
+              >
+                MKI Links PRO
+              </motion.span>
+              {isAdmin && (
+                <motion.span
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0, color: ["#DC2626", "#000000", "#DC2626"] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  className="text-[10px] font-black uppercase tracking-widest leading-none mt-0.5"
+                >
+                  Administrador
+                </motion.span>
+              )}
+            </div>
           </Link>
 
           <div className="flex items-center gap-4">

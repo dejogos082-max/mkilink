@@ -144,6 +144,51 @@ async function startServer() {
     }
   });
 
+  // MFA Endpoints
+  const mfaCodes = new Map<string, { code: string, expires: number }>();
+
+  app.post("/api/mfa/send-code", async (req, res) => {
+    const { userId, email } = req.body;
+    if (!userId || !email) return res.status(400).json({ error: "Missing data" });
+
+    try {
+      // Generate a 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+      mfaCodes.set(userId, { code, expires });
+
+      // In a real app, you would use an email service here (Resend, SendGrid, etc.)
+      console.log(`[MFA] Code for ${email}: ${code}`);
+      
+      // We'll simulate success
+      res.json({ success: true, message: "Code sent to email" });
+    } catch (error) {
+      console.error("MFA Send Error:", error);
+      res.status(500).json({ error: "Failed to send MFA code" });
+    }
+  });
+
+  app.post("/api/mfa/verify-code", async (req, res) => {
+    const { userId, code } = req.body;
+    if (!userId || !code) return res.status(400).json({ error: "Missing data" });
+
+    const stored = mfaCodes.get(userId);
+    if (!stored) return res.status(401).json({ error: "No code found or expired" });
+
+    if (Date.now() > stored.expires) {
+      mfaCodes.delete(userId);
+      return res.status(401).json({ error: "Code expired" });
+    }
+
+    if (stored.code === code) {
+      mfaCodes.delete(userId);
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ error: "Invalid code" });
+    }
+  });
+
   // hCaptcha Verification Endpoint
   app.post("/api/verify-hcaptcha", async (req, res) => {
     const { token } = req.body;

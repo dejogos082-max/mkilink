@@ -10,6 +10,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Redirect from "./pages/Redirect";
 import Menu from "./pages/Menu";
+import LinksManager from "./pages/LinksManager";
 import Stats from "./pages/Stats";
 import Monetization from "./pages/Monetization";
 import LinkBioManager from "./pages/LinkBioManager";
@@ -65,6 +66,16 @@ export default function App() {
                     <PrivateRoute>
                       <Layout>
                         <Menu />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/links"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <LinksManager />
                       </Layout>
                     </PrivateRoute>
                   }
