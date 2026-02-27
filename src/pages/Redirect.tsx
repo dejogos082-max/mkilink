@@ -402,22 +402,26 @@ export default function Redirect() {
                 )}
 
                 {countdown > 0 ? (
-                  <p className="text-sm text-gray-400">
-                    Por favor aguarde {countdown} segundos...
-                  </p>
+                  <div key="countdown">
+                    <p className="text-sm text-gray-400">
+                      Por favor aguarde {countdown} segundos...
+                    </p>
+                  </div>
                 ) : !isCaptchaVerified ? (
-                   <p className="text-sm text-red-500 font-medium">
-                     Por favor complete o captcha acima para continuar.
-                   </p>
+                   <div key="captcha-msg">
+                     <p className="text-sm text-red-500 font-medium">
+                       Por favor complete o captcha acima para continuar.
+                     </p>
+                   </div>
                 ) : !hasClickedAd ? (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl animate-in fade-in zoom-in duration-300">
+                  <div key="ad-block" className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl animate-in fade-in zoom-in duration-300">
                     <p className="text-yellow-800 font-bold text-lg mb-2">Link Bloqueado</p>
                     <p className="text-yellow-700">
                       Por favor <span className="font-bold underline">clique em qualquer anúncio</span> para desbloquear seu link de destino.
                     </p>
                   </div>
                 ) : (
-                  <div className="animate-in fade-in zoom-in duration-300">
+                  <div key="unlocked" className="animate-in fade-in zoom-in duration-300">
                     <p className="text-green-600 font-medium mb-2">Link Desbloqueado!</p>
                     <button 
                       onClick={handleSecureRedirect}
