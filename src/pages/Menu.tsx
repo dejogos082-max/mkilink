@@ -108,7 +108,7 @@ export default function Menu() {
               </p>
               
               <div className="flex items-center text-sm font-medium text-gray-400 group-hover:text-indigo-600 transition-colors mt-auto">
-                Abrir
+                <span>Abrir</span>
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             </Link>

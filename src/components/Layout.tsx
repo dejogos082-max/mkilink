@@ -45,7 +45,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 style={{ backgroundSize: "200% auto" }}
                 className="text-lg font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 leading-none"
               >
-                MKI Links PRO
+                <span>MKI Links PRO</span>
               </motion.span>
               {isAdmin && (
                 <motion.span
@@ -54,7 +54,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                   className="text-[10px] font-black uppercase tracking-widest leading-none mt-0.5"
                 >
-                  Administrador
+                  <span>Administrador</span>
                 </motion.span>
               )}
             </div>
@@ -65,16 +65,24 @@ export function Layout({ children }: { children: ReactNode }) {
               <>
                 <Link to={location.pathname === '/menu' ? '/' : '/menu'}>
                   <Button variant="ghost" size="sm" className={location.pathname === '/menu' ? 'bg-gray-100' : ''}>
-                    {location.pathname === '/menu' ? <X className="mr-2 h-4 w-4" /> : <Grid className="mr-2 h-4 w-4" />}
-                    Menu
+                    <span className="flex items-center">
+                      {location.pathname === '/menu' ? (
+                        <X key="icon-x" className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Grid key="icon-grid" className="mr-2 h-4 w-4" />
+                      )}
+                      <span>Menu</span>
+                    </span>
                   </Button>
                 </Link>
                 <span className="hidden text-sm text-gray-600 sm:inline-block">
                   {currentUser.email}
                 </span>
                 <Button variant="ghost" size="sm" onClick={() => logout()} className="hidden sm:flex">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sair
+                  <span className="flex items-center">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </span>
                 </Button>
               </>
             ) : (
