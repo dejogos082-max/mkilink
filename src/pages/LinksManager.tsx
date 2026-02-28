@@ -242,13 +242,13 @@ export default function LinksManager() {
       </AnimatePresence>
 
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <LinkIcon className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-zinc-50 flex items-center gap-2">
+            <LinkIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             <span>Gerenciador de Links</span>
           </h1>
-          <p className="text-sm text-gray-500 mt-1"><span>Crie, edite e acompanhe todos os seus links curtos.</span></p>
+          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1"><span>Crie, edite e acompanhe todos os seus links curtos.</span></p>
         </div>
         <Button onClick={() => setIsCreateModalOpen(true)} className="shrink-0 shadow-md shadow-indigo-500/20">
           <Plus className="w-4 h-4 mr-2" />
@@ -259,22 +259,22 @@ export default function LinksManager() {
       {/* Filters Section */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
           <input
             type="text"
             placeholder="Buscar por alias ou URL original..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border-gray-200 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-gray-900 dark:text-zinc-50 placeholder:text-gray-500 dark:placeholder:text-zinc-500"
           />
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="pl-10 pr-8 py-2.5 bg-white border-gray-200 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm appearance-none"
+              className="pl-10 pr-8 py-2.5 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm appearance-none text-gray-900 dark:text-zinc-50"
             >
               <option value="createdAt">Data de Criação</option>
               <option value="clicks">Mais Clicados</option>
@@ -283,7 +283,7 @@ export default function LinksManager() {
           </div>
           <Button
             variant="outline"
-            className="px-3 py-2.5 bg-white border-gray-200 shadow-sm"
+            className="px-3 py-2.5 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 shadow-sm"
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
           >
             {sortOrder === 'asc' ? '↑' : '↓'}
@@ -292,19 +292,19 @@ export default function LinksManager() {
       </div>
 
       {/* Links Data Grid */}
-      <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-4 text-sm text-gray-500">Carregando links...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto"></div>
+            <p className="mt-4 text-sm text-gray-500 dark:text-zinc-400">Carregando links...</p>
           </div>
         ) : filteredAndSortedLinks.length === 0 ? (
           <div className="p-12 text-center flex flex-col items-center">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-              <LinkIcon className="w-8 h-8 text-gray-400" />
+            <div className="w-16 h-16 bg-gray-50 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
+              <LinkIcon className="w-8 h-8 text-gray-400 dark:text-zinc-500" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900">Nenhum link encontrado</h3>
-            <p className="mt-1 text-sm text-gray-500 max-w-sm mx-auto">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-50">Nenhum link encontrado</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400 max-w-sm mx-auto">
               {searchQuery ? "Tente ajustar sua busca." : "Você ainda não criou nenhum link curto. Clique em 'Novo Link' para começar."}
             </p>
             {!searchQuery && (
@@ -317,15 +317,15 @@ export default function LinksManager() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-100">
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"><span>Link Curto</span></th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell"><span>Destino Original</span></th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"><span>Cliques</span></th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"><span>Criado em</span></th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right"><span>Ações</span></th>
+                <tr className="bg-gray-50/50 dark:bg-zinc-800/50 border-b border-gray-100 dark:border-zinc-800">
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider"><span>Link Curto</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider hidden md:table-cell"><span>Destino Original</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider"><span>Cliques</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:table-cell"><span>Criado em</span></th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider text-right"><span>Ações</span></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
                 <AnimatePresence>
                   {filteredAndSortedLinks.map((link) => (
                     <motion.tr 
@@ -334,14 +334,14 @@ export default function LinksManager() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
-                      className="hover:bg-gray-50/50 transition-colors group"
+                      className="hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 transition-colors group"
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-indigo-600"><span>/{link.shortCode}</span></span>
+                          <span className="font-medium text-indigo-600 dark:text-indigo-400"><span>/{link.shortCode}</span></span>
                           <button 
                             onClick={() => copyToClipboard(link.shortCode)}
-                            className={`transition-colors flex items-center gap-1 ${copiedId === link.shortCode ? 'text-green-500 opacity-100' : 'text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}
+                            className={`transition-colors flex items-center gap-1 ${copiedId === link.shortCode ? 'text-green-500 opacity-100' : 'text-gray-400 dark:text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100'}`}
                             title="Copiar Link"
                           >
                             {copiedId === link.shortCode ? (
@@ -354,7 +354,7 @@ export default function LinksManager() {
                             )}
                           </button>
                           {link.settings?.expiresAt && Date.now() > link.settings.expiresAt && (
-                            <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-600 rounded-full">
+                            <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full">
                               <span>Expirado</span>
                             </span>
                           )}
@@ -362,21 +362,21 @@ export default function LinksManager() {
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
                         <div className="flex items-center gap-2 max-w-[200px] lg:max-w-[300px]">
-                          <span className="text-sm text-gray-500 truncate" title={link.originalUrl}>
+                          <span className="text-sm text-gray-500 dark:text-zinc-400 truncate" title={link.originalUrl}>
                             <span>{link.originalUrl}</span>
                           </span>
-                          <a href={link.originalUrl} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-gray-600 shrink-0">
+                          <a href={link.originalUrl} target="_blank" rel="noreferrer" className="text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 shrink-0">
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                          <BarChart2 className="w-4 h-4 text-gray-400" />
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-zinc-300">
+                          <BarChart2 className="w-4 h-4 text-gray-400 dark:text-zinc-500" />
                           <span>{link.clicks.toLocaleString()}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 hidden sm:table-cell text-sm text-gray-500">
+                      <td className="px-6 py-4 hidden sm:table-cell text-sm text-gray-500 dark:text-zinc-400">
                         <span>{new Date(link.createdAt).toLocaleDateString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -384,7 +384,7 @@ export default function LinksManager() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 px-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+                            className="h-8 px-2 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                             onClick={() => openEditModal(link)}
                           >
                             <Settings className="w-4 h-4 sm:mr-1.5" />
@@ -393,7 +393,7 @@ export default function LinksManager() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 p-0 text-gray-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                             onClick={() => setLinkToDelete(link.shortCode)}
                           >
                             <Trash2 className="w-4 h-4" />

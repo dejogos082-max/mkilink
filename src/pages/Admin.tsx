@@ -31,6 +31,7 @@ interface UserData {
   email: string;
   role: string;
   status?: 'active' | 'suspended' | 'banned';
+  lastIp?: string;
   loginHistory?: Record<string, any>;
 }
 
@@ -63,6 +64,7 @@ export default function Admin() {
   const [isIpModalOpen, setIsIpModalOpen] = useState(false);
   const [newIp, setNewIp] = useState("");
   const [ipReason, setIpReason] = useState("");
+  const [codeToDelete, setCodeToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -171,11 +173,16 @@ export default function Admin() {
     }
   };
 
-  const handleDeleteCode = async (codeId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este código?")) return;
+  const handleDeleteCode = (codeId: string) => {
+    setCodeToDelete(codeId);
+  };
+
+  const confirmDeleteCode = async () => {
+    if (!codeToDelete) return;
     try {
-      await remove(ref(db, `admin_codes/${codeId}`));
+      await remove(ref(db, `admin_codes/${codeToDelete}`));
       showToast("Código excluído");
+      setCodeToDelete(null);
     } catch (error) {
       showToast("Erro ao excluir código", "error");
     }
@@ -301,6 +308,7 @@ export default function Admin() {
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-100">
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuário</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">IP Recente</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cargo</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Ações</th>
@@ -312,6 +320,9 @@ export default function Admin() {
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{user.email || 'Sem Email'}</div>
                         <div className="text-xs text-gray-500 font-mono">{user.id}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-600 font-mono">{user.lastIp || 'Desconhecido'}</div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -490,6 +501,44 @@ export default function Admin() {
                   </Button>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Code Modal */}
+      <AnimatePresence>
+        {codeToDelete && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Código</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Tem certeza que deseja excluir este código permanentemente? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={() => setCodeToDelete(null)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0" 
+                  onClick={confirmDeleteCode}
+                >
+                  Excluir
+                </Button>
+              </div>
             </motion.div>
           </motion.div>
         )}

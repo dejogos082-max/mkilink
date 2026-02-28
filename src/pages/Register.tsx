@@ -8,7 +8,10 @@ import { motion } from "motion/react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 
+import { useSettings } from "../contexts/SettingsContext";
+
 export default function Register() {
+  const { settings } = useSettings();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -108,6 +111,7 @@ export default function Register() {
               onVerify={(token) => setCaptchaToken(token)}
               onExpire={() => setCaptchaToken(null)}
               ref={captchaRef}
+              theme={settings.theme}
             />
           </div>
 

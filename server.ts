@@ -7,9 +7,21 @@ import { fileURLToPath } from "url";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, get, set } from "firebase/database";
+import { getDatabase, ref, get, set, update, push } from "firebase/database";
+import nodemailer from "nodemailer";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Email Transporter Setup
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 // Firebase configuration for backend
 const firebaseConfig = {
@@ -42,6 +54,9 @@ async function startServer() {
         // Clean IP (remove ipv6 prefix if present for ipv4)
         const cleanIp = ipString.replace(/^::ffff:/, '');
         
+        // Attach clean IP to request for later use
+        (req as any).clientIp = cleanIp;
+
         const bannedIpsSnapshot = await get(ref(db, "banned_ips"));
         if (bannedIpsSnapshot.exists()) {
           const bannedIps = bannedIpsSnapshot.val();
@@ -56,6 +71,11 @@ async function startServer() {
       console.error("Error checking banned IPs:", error);
     }
     next();
+  });
+
+  // Get Client IP Endpoint
+  app.get("/api/ip", (req, res) => {
+    res.json({ ip: (req as any).clientIp || "127.0.0.1" });
   });
 
   // Helper to get R2 Config from Firebase
@@ -103,7 +123,7 @@ async function startServer() {
       }
 
       // Fallback to hardcoded code if no codes exist in DB yet
-      if (!isValidCode && code !== "362136") {
+      if (!isValidCode) {
         return res.status(401).json({ error: "Invalid code" });
       }
 
@@ -196,10 +216,32 @@ async function startServer() {
 
       mfaCodes.set(userId, { code, expires });
 
-      // In a real app, you would use an email service here (Resend, SendGrid, etc.)
       console.log(`[MFA] Code for ${email}: ${code}`);
       
-      // We'll simulate success
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        try {
+          await transporter.sendMail({
+            from: `"MKI Links PRO" <${process.env.SMTP_USER}>`,
+            to: email,
+            subject: "Seu código de verificação - MKI Links PRO",
+            text: `Seu código de verificação é: ${code}. Ele expira em 5 minutos.`,
+            html: `
+              <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #4f46e5;">Verificação de Segurança</h2>
+                <p>Você está tentando fazer login no MKI Links PRO. Use o código abaixo para continuar:</p>
+                <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                  <span style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #111827;">${code}</span>
+                </div>
+                <p style="color: #6b7280; font-size: 14px;">Este código expira em 5 minutos. Se você não solicitou este código, ignore este e-mail.</p>
+              </div>
+            `
+          });
+        } catch (emailError) {
+          console.error("Failed to send email:", emailError);
+          // Continue anyway for development, but in production we might want to fail
+        }
+      }
+      
       res.json({ success: true, message: "Code sent to email" });
     } catch (error) {
       console.error("MFA Send Error:", error);
@@ -260,6 +302,37 @@ async function startServer() {
     } catch (error) {
       console.error("hCaptcha Verification Error:", error);
       res.status(500).json({ success: false, error: "Verification failed" });
+    }
+  });
+
+  // Log Login Endpoint
+  app.post("/api/log-login", async (req, res) => {
+    try {
+      const { userId, userAgent, email } = req.body;
+      const ip = (req as any).clientIp || "127.0.0.1";
+      
+      if (userId) {
+        // Update user's main record with email and latest IP
+        const updates: any = {
+          lastIp: ip,
+          lastLoginAt: Date.now()
+        };
+        if (email) updates.email = email;
+        
+        await update(ref(db, `users/${userId}`), updates);
+
+        // Add to history
+        const historyRef = ref(db, `users/${userId}/loginHistory`);
+        await push(historyRef, {
+          ip,
+          timestamp: Date.now(),
+          userAgent: userAgent || "Unknown",
+        });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Log Login Error:", error);
+      res.status(500).json({ error: "Failed to log login" });
     }
   });
 

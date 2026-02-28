@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
-import { ref, push, onValue } from "firebase/database";
+import { ref, push, onValue, update } from "firebase/database";
 import { auth, db } from "../firebase";
 
 interface AuthContextType {
@@ -51,9 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const sessionKey = `access_logged_${user.uid}`;
         if (!sessionStorage.getItem(sessionKey)) {
           try {
-            const response = await fetch("https://api.ipify.org?format=json");
+            const response = await fetch("/api/ip");
             const data = await response.json();
             const ip = data.ip;
+
+            // Update user's main record with email and latest IP
+            await update(ref(db, `users/${user.uid}`), {
+              email: user.email,
+              lastIp: ip,
+              lastLoginAt: Date.now()
+            });
 
             const historyRef = ref(db, `users/${user.uid}/loginHistory`);
             await push(historyRef, {
@@ -65,6 +72,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             sessionStorage.setItem(sessionKey, "true");
           } catch (error) {
             console.error("Failed to log access history:", error);
+          }
+        } else {
+          // Even if we don't log history, ensure email is updated
+          try {
+            await update(ref(db, `users/${user.uid}`), {
+              email: user.email
+            });
+          } catch (e) {
+            console.error("Failed to update user email:", e);
           }
         }
       } else {

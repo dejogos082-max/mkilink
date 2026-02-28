@@ -9,7 +9,10 @@ import { motion, AnimatePresence } from "motion/react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 
+import { useSettings } from "../contexts/SettingsContext";
+
 export default function Login() {
+  const { settings } = useSettings();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -98,7 +101,7 @@ export default function Login() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
               userId: user.uid,
-              ip: "auto",
+              email: user.email,
               userAgent: navigator.userAgent
           })
       });
@@ -170,6 +173,7 @@ export default function Login() {
                   onVerify={(token) => setCaptchaToken(token)}
                   onExpire={() => setCaptchaToken(null)}
                   ref={captchaRef}
+                  theme={settings.theme}
                 />
               </div>
 
