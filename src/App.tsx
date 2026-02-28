@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Redirect from "./pages/Redirect";
 import Menu from "./pages/Menu";
 import LinksManager from "./pages/LinksManager";
+import SimpleLinksManager from "./pages/SimpleLinksManager";
 import Stats from "./pages/Stats";
 import Monetization from "./pages/Monetization";
 import LinkBioManager from "./pages/LinkBioManager";
@@ -77,6 +78,16 @@ export default function App() {
                     <PrivateRoute>
                       <Layout>
                         <LinksManager />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/simple-links"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <SimpleLinksManager />
                       </Layout>
                     </PrivateRoute>
                   }

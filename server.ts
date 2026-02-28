@@ -206,6 +206,8 @@ async function startServer() {
   const mfaCodes = new Map<string, { code: string, expires: number }>();
 
   app.post("/api/mfa/send-code", async (req, res) => {
+    return res.status(503).json({ error: "MFA is currently in maintenance mode" });
+    /*
     const { userId, email } = req.body;
     if (!userId || !email) return res.status(400).json({ error: "Missing data" });
 
@@ -247,9 +249,12 @@ async function startServer() {
       console.error("MFA Send Error:", error);
       res.status(500).json({ error: "Failed to send MFA code" });
     }
+    */
   });
 
   app.post("/api/mfa/verify-code", async (req, res) => {
+    return res.status(503).json({ error: "MFA is currently in maintenance mode" });
+    /*
     const { userId, code } = req.body;
     if (!userId || !code) return res.status(400).json({ error: "Missing data" });
 
@@ -267,6 +272,7 @@ async function startServer() {
     } else {
       res.status(401).json({ error: "Invalid code" });
     }
+    */
   });
 
   // hCaptcha Verification Endpoint

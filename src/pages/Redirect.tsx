@@ -9,7 +9,6 @@ import axios from 'axios';
 import { detectAdBlock, AdBlockModal } from "../utils/antiAdblock";
 import { HCaptchaWrapper } from "../components/HCaptchaWrapper";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { useSettings } from "../contexts/SettingsContext";
 
 const AdsterraAd = React.memo(({ width, height, adKey }: { width: number; height: number; adKey: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,7 +77,6 @@ const SafeAdsterraAd = (props: { width: number; height: number; adKey: string })
 );
 
 export default function Redirect() {
-  const { settings } = useSettings();
   const { shortId } = useParams();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
@@ -230,6 +228,30 @@ export default function Redirect() {
       .then((snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
+
+          // Handle Simple Links (Instant Redirect)
+          if (data.type === 'simple') {
+            // Track click asynchronously
+            const linkRef = ref(db, `short_links/${shortId}`);
+            runTransaction(linkRef, (link) => {
+                if (link) {
+                    link.clicks = (link.clicks || 0) + 1;
+                }
+                return link;
+            }).catch(console.error);
+
+            const statsRef = ref(db, `click_stats/${shortId}`);
+            push(statsRef, {
+                timestamp: Date.now(),
+                userAgent: navigator.userAgent,
+                referrer: document.referrer || 'direct'
+            }).catch(console.error);
+
+            // Immediate redirect
+            window.location.href = data.originalUrl;
+            return;
+          }
+
           setOriginalUrl(data.originalUrl);
           
           // Apply Settings
@@ -470,7 +492,7 @@ export default function Redirect() {
                     <p className="text-gray-500 text-sm"><span>Por favor, prove que você não é um robô para continuar.</span></p>
                     <div className="flex justify-center min-h-[78px]">
                         <HCaptchaWrapper>
-                            <HCaptcha sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"} onVerify={handleCaptchaVerify} ref={captchaRef} theme={settings.theme} />
+                            <HCaptcha sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"} onVerify={handleCaptchaVerify} ref={captchaRef} />
                         </HCaptchaWrapper>
                     </div>
                 </div>
@@ -596,7 +618,6 @@ export default function Redirect() {
                         sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"}
                         onVerify={handleCaptchaVerify}
                         ref={captchaRef}
-                        theme={settings.theme}
                       />
                     </HCaptchaWrapper>
                   </div>

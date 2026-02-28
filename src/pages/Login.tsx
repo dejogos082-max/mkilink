@@ -9,10 +9,7 @@ import { motion, AnimatePresence } from "motion/react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 
-import { useSettings } from "../contexts/SettingsContext";
-
 export default function Login() {
-  const { settings } = useSettings();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -50,9 +47,13 @@ export default function Login() {
       const user = userCredential.user;
 
       // Check if MFA is enabled for this user
+      // MFA Temporarily Disabled for Maintenance
+      const isMfaEnabled = false; 
+      /* 
       const mfaRef = ref(db, `users/${user.uid}/mfaEnabled`);
       const mfaSnapshot = await get(mfaRef);
       const isMfaEnabled = mfaSnapshot.exists() && mfaSnapshot.val() === true;
+      */
 
       if (isMfaEnabled) {
         setTempUser(user);
@@ -173,7 +174,6 @@ export default function Login() {
                   onVerify={(token) => setCaptchaToken(token)}
                   onExpire={() => setCaptchaToken(null)}
                   ref={captchaRef}
-                  theme={settings.theme}
                 />
               </div>
 
