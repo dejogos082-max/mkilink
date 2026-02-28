@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import { ref, set } from "firebase/database";
+import { auth, db } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
@@ -44,7 +45,17 @@ export default function Register() {
         return setError("Captcha verification failed. Please try again.");
       }
 
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Create user record in database
+      await set(ref(db, `users/${user.uid}`), {
+        email: user.email,
+        createdAt: Date.now(),
+        role: 'user',
+        status: 'active'
+      });
+
       navigate("/");
     } catch (err: any) {
       console.error(err);

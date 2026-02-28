@@ -131,7 +131,7 @@ export default function BioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
       </div>
     );
@@ -139,7 +139,7 @@ export default function BioPage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-white p-4 text-center">
         <div>
             <div className="mx-auto w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mb-4">
                 <Lock className="w-6 h-6 text-gray-400" />

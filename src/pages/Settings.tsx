@@ -26,7 +26,7 @@ import {
   reauthenticateWithCredential
 } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { ref, query, orderByChild, limitToLast, get, set } from "firebase/database";
+import { ref, query, orderByChild, limitToLast, get, set, equalTo, update } from "firebase/database";
 
 export default function Settings() {
   const { settings, updateSettings } = useSettings();
@@ -172,27 +172,29 @@ export default function Settings() {
   }, [currentUser]);
 
   const handleAdminVerify = async () => {
-    if (adminCode.length !== 6) return;
+    if (adminCode.length < 6 || !currentUser) return;
     setAdminLoading(true);
     try {
-        const res = await fetch('/api/admin/verify-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: adminCode, userId: currentUser?.uid })
+      // Query AdminCode collection for the entered code
+      const codesRef = ref(db, "AdminCode");
+      const codeQuery = query(codesRef, orderByChild("code"), equalTo(adminCode));
+      const snapshot = await get(codeQuery);
+
+      if (snapshot.exists()) {
+        // Code found, grant admin role
+        await update(ref(db, `users/${currentUser.uid}`), {
+          role: "AdminUser"
         });
-        
-        const data = await res.json();
-        if (res.ok) {
-            alert("Acesso Administrativo Concedido! Você agora é um AdminUser.");
-            setAdminCode("");
-        } else {
-            alert(data.error || "Código inválido");
-        }
+        alert("Acesso Administrativo Concedido! Você agora é um AdminUser.");
+        setAdminCode("");
+      } else {
+        alert("Código inválido ou expirado.");
+      }
     } catch (err) {
-        console.error(err);
-        alert("Erro ao verificar código");
+      console.error(err);
+      alert("Erro ao verificar código");
     } finally {
-        setAdminLoading(false);
+      setAdminLoading(false);
     }
   };
 
@@ -365,25 +367,6 @@ export default function Settings() {
       bg: "bg-purple-50",
       content: (
         <div className="space-y-6">
-          {/* Theme Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-100 rounded-lg">
-                {settings.theme === "light" ? <Sun className="w-4 h-4 text-orange-500" /> : <Moon className="w-4 h-4 text-indigo-400" />}
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900">Tema Escuro</p>
-                <p className="text-xs text-gray-500">Alterne entre modo claro e escuro</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => updateSettings({ theme: settings.theme === "light" ? "dark" : "light" })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.theme === "dark" ? "bg-indigo-600" : "bg-gray-200"}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.theme === "dark" ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-          </div>
-
           {/* Blur Toggle */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -441,11 +424,18 @@ export default function Settings() {
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </div>
           </div>
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+          
+          {/* Data and Telemetry Toggle */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
             <div className="flex items-center gap-3">
               <p className="text-sm font-medium text-gray-900">Dados e Telemetria</p>
             </div>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <button 
+              onClick={() => updateSettings({ telemetryEnabled: !settings.telemetryEnabled })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.telemetryEnabled ? "bg-indigo-600" : "bg-gray-200"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.telemetryEnabled ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
           </div>
           
           {/* Admin Access Section */}
@@ -477,7 +467,7 @@ export default function Settings() {
                   />
                   <Button 
                       onClick={handleAdminVerify}
-                      disabled={adminCode.length !== 6 || adminLoading}
+                      disabled={adminCode.length < 6 || adminLoading}
                       isLoading={adminLoading}
                       className="whitespace-nowrap h-8 text-xs px-3"
                       size="sm"

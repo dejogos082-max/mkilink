@@ -47,6 +47,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(role === "AdminUser");
         });
 
+        // Always ensure email is up to date
+        try {
+          await update(ref(db, `users/${user.uid}`), {
+            email: user.email,
+            lastLoginAt: Date.now()
+          });
+        } catch (e) {
+          console.error("Failed to update user email:", e);
+        }
+
         // Log access history once per session
         const sessionKey = `access_logged_${user.uid}`;
         if (!sessionStorage.getItem(sessionKey)) {
@@ -55,11 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const data = await response.json();
             const ip = data.ip;
 
-            // Update user's main record with email and latest IP
+            // Update user's IP
             await update(ref(db, `users/${user.uid}`), {
-              email: user.email,
-              lastIp: ip,
-              lastLoginAt: Date.now()
+              lastIp: ip
             });
 
             const historyRef = ref(db, `users/${user.uid}/loginHistory`);
@@ -72,15 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             sessionStorage.setItem(sessionKey, "true");
           } catch (error) {
             console.error("Failed to log access history:", error);
-          }
-        } else {
-          // Even if we don't log history, ensure email is updated
-          try {
-            await update(ref(db, `users/${user.uid}`), {
-              email: user.email
-            });
-          } catch (e) {
-            console.error("Failed to update user email:", e);
           }
         }
       } else {

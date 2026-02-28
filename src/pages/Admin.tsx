@@ -15,7 +15,10 @@ import {
   Search,
   CheckCircle2,
   X,
-  ShieldOff
+  ShieldOff,
+  Settings,
+  Bell,
+  Send
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
@@ -45,17 +48,30 @@ interface BannedIP {
 
 export default function Admin() {
   const { currentUser, isAdmin } = useAuth() || { currentUser: null, isAdmin: false };
-  const [activeTab, setActiveTab] = useState<'users' | 'codes' | 'ips'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'codes' | 'ips' | 'settings' | 'notifications'>('users');
   
   // Data States
   const [users, setUsers] = useState<UserData[]>([]);
   const [adminCodes, setAdminCodes] = useState<AdminCode[]>([]);
   const [bannedIps, setBannedIps] = useState<BannedIP[]>([]);
+  const [storeEnabled, setStoreEnabled] = useState(true);
+  
+  // Notification States
+  const [notifTarget, setNotifTarget] = useState<'all' | 'specific'>('all');
+  const [notifEmail, setNotifEmail] = useState("");
+  const [notifTitle, setNotifTitle] = useState("");
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifType, setNotifType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
+  const [notifActionType, setNotifActionType] = useState<'none' | 'link' | 'route'>('none');
+  const [notifActionPayload, setNotifActionPayload] = useState("");
+  const [notifScheduledDate, setNotifScheduledDate] = useState("");
+  const [isSendingNotif, setIsSendingNotif] = useState(false);
+  const [scheduledNotifs, setScheduledNotifs] = useState<any[]>([]);
   
   // UI States
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'warning'} | null>(null);
   
   // Modal States
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
@@ -65,6 +81,10 @@ export default function Admin() {
   const [newIp, setNewIp] = useState("");
   const [ipReason, setIpReason] = useState("");
   const [codeToDelete, setCodeToDelete] = useState<string | null>(null);
+  
+  // Invite Admin State
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -85,7 +105,7 @@ export default function Admin() {
     });
 
     // Fetch Admin Codes
-    const codesRef = ref(db, "admin_codes");
+    const codesRef = ref(db, "AdminCode");
     const unsubCodes = onValue(codesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -115,10 +135,38 @@ export default function Admin() {
       setLoading(false);
     });
 
+    // Fetch Settings
+    const settingsRef = ref(db, "settings");
+    const unsubSettings = onValue(settingsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (data.storeEnabled !== undefined) {
+          setStoreEnabled(data.storeEnabled);
+        }
+      }
+    });
+
+    // Fetch Scheduled Notifications
+    const scheduledRef = ref(db, "scheduled_notifications");
+    const unsubScheduled = onValue(scheduledRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const list = Object.entries(data).map(([key, value]: [string, any]) => ({
+          id: key,
+          ...value,
+        })).sort((a, b) => a.scheduledAt - b.scheduledAt);
+        setScheduledNotifs(list);
+      } else {
+        setScheduledNotifs([]);
+      }
+    });
+
     return () => {
       unsubUsers();
       unsubCodes();
       unsubIps();
+      unsubSettings();
+      unsubScheduled();
     };
   }, [isAdmin]);
 
@@ -126,7 +174,7 @@ export default function Admin() {
     return <Navigate to="/" />;
   }
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
@@ -150,6 +198,62 @@ export default function Admin() {
     }
   };
 
+  const handlePromoteToAdmin = async (userId: string) => {
+    if (!confirm("Tem certeza que deseja tornar este usuário um Administrador?")) return;
+    try {
+      await update(ref(db, `users/${userId}`), { role: 'AdminUser' });
+      showToast("Usuário promovido a Administrador com sucesso!");
+    } catch (error) {
+      showToast("Erro ao promover usuário", "error");
+    }
+  };
+
+  const handleInviteAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail) return;
+
+    try {
+      // 1. Generate unique code
+      const inviteCode = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      // 2. Save invite to DB
+      await set(ref(db, `admin_invites/${inviteCode}`), {
+        email: inviteEmail,
+        createdBy: currentUser?.uid,
+        createdAt: Date.now()
+      });
+
+      // 3. Find user by email to send notification
+      const targetUser = users.find(u => u.email === inviteEmail);
+      
+      if (targetUser) {
+        // Send notification with link
+        const notification = {
+          title: "Convite para Administração",
+          message: "Você foi convidado para se tornar um administrador. Clique para aceitar.",
+          type: "success",
+          actionType: "route",
+          actionPayload: `/accept-invite/${inviteCode}`,
+          createdAt: Date.now(),
+          read: false
+        };
+        
+        await push(ref(db, `notifications/${targetUser.id}`), notification);
+        showToast(`Convite enviado para ${inviteEmail}`);
+      } else {
+        // If user not found, we still created the invite code, but can't send notification internally.
+        // Maybe show the link to copy?
+        showToast("Convite criado, mas usuário não encontrado para notificação automática.", "warning");
+      }
+      
+      setIsInviteModalOpen(false);
+      setInviteEmail("");
+    } catch (error) {
+      console.error(error);
+      showToast("Erro ao enviar convite", "error");
+    }
+  };
+
   // Code Actions
   const handleCreateCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +263,7 @@ export default function Admin() {
     }
 
     try {
-      const newCodeRef = push(ref(db, "admin_codes"));
+      const newCodeRef = push(ref(db, "AdminCode"));
       await set(newCodeRef, {
         code: newCode,
         createdBy: currentUser?.uid,
@@ -180,7 +284,7 @@ export default function Admin() {
   const confirmDeleteCode = async () => {
     if (!codeToDelete) return;
     try {
-      await remove(ref(db, `admin_codes/${codeToDelete}`));
+      await remove(ref(db, `AdminCode/${codeToDelete}`));
       showToast("Código excluído");
       setCodeToDelete(null);
     } catch (error) {
@@ -220,6 +324,109 @@ export default function Admin() {
     }
   };
 
+  const handleToggleStore = async () => {
+    try {
+      await update(ref(db, "settings"), {
+        storeEnabled: !storeEnabled
+      });
+      showToast(`Loja ${!storeEnabled ? 'ativada' : 'desativada'} com sucesso`);
+    } catch (error) {
+      showToast("Erro ao atualizar configurações", "error");
+    }
+  };
+
+  const handleDeleteScheduled = async (id: string) => {
+    if (!confirm("Cancelar agendamento?")) return;
+    try {
+      await remove(ref(db, `scheduled_notifications/${id}`));
+      showToast("Agendamento cancelado");
+    } catch (error) {
+      showToast("Erro ao cancelar", "error");
+    }
+  };
+
+  const handleSendNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifTitle || !notifMessage) {
+      showToast("Preencha título e mensagem", "error");
+      return;
+    }
+    
+    if (notifActionType !== 'none' && !notifActionPayload) {
+      showToast("Preencha o conteúdo da ação (URL ou Rota)", "error");
+      return;
+    }
+
+    setIsSendingNotif(true);
+    try {
+      const notificationBase = {
+        title: notifTitle,
+        message: notifMessage,
+        type: notifType,
+        actionType: notifActionType,
+        actionPayload: notifActionPayload,
+        createdAt: Date.now(),
+        read: false
+      };
+
+      // Check if scheduled
+      if (notifScheduledDate) {
+        const scheduledTime = new Date(notifScheduledDate).getTime();
+        if (scheduledTime <= Date.now()) {
+          showToast("Data de agendamento deve ser futura", "error");
+          setIsSendingNotif(false);
+          return;
+        }
+
+        const scheduledNotif = {
+          ...notificationBase,
+          scheduledAt: scheduledTime,
+          target: notifTarget,
+          targetEmail: notifTarget === 'specific' ? notifEmail : null,
+          status: 'pending'
+        };
+
+        await push(ref(db, "scheduled_notifications"), scheduledNotif);
+        showToast("Notificação agendada com sucesso!");
+      } else {
+        // Send immediately
+        if (notifTarget === 'all') {
+          const updates: Record<string, any> = {};
+          users.forEach(user => {
+            const newNotifKey = push(ref(db, `notifications/${user.id}`)).key;
+            if (newNotifKey) {
+              updates[`notifications/${user.id}/${newNotifKey}`] = notificationBase;
+            }
+          });
+          await update(ref(db), updates);
+          showToast(`Notificação enviada para ${users.length} usuários`);
+        } else {
+          const targetUser = users.find(u => u.email === notifEmail);
+          if (!targetUser) {
+            showToast("Usuário não encontrado com este email", "error");
+            setIsSendingNotif(false);
+            return;
+          }
+          await push(ref(db, `notifications/${targetUser.id}`), notificationBase);
+          showToast(`Notificação enviada para ${notifEmail}`);
+        }
+      }
+
+      // Reset form
+      setNotifTitle("");
+      setNotifMessage("");
+      setNotifEmail("");
+      setNotifActionType('none');
+      setNotifActionPayload("");
+      setNotifScheduledDate("");
+    } catch (error) {
+      console.error(error);
+      showToast("Erro ao processar notificação", "error");
+    } finally {
+      setIsSendingNotif(false);
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.id.includes(searchQuery)
@@ -235,10 +442,12 @@ export default function Admin() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             className={`fixed top-4 right-4 z-[100] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white ${
-              toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
+              toast.type === 'success' ? 'bg-emerald-500' : 
+              toast.type === 'warning' ? 'bg-amber-500' : 'bg-red-500'
             }`}
           >
-            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <X className="w-4 h-4" />}
+            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : 
+             toast.type === 'warning' ? <ShieldAlert className="w-4 h-4" /> : <X className="w-4 h-4" />}
             <span>{toast.message}</span>
           </motion.div>
         )}
@@ -256,10 +465,10 @@ export default function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-1">
+      <div className="flex bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-1 overflow-x-auto">
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+          className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
             activeTab === 'users' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -268,21 +477,39 @@ export default function Admin() {
         </button>
         <button
           onClick={() => setActiveTab('codes')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+          className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
             activeTab === 'codes' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <Key className="w-4 h-4" />
-          <span>Códigos Admin</span>
+          <span>Códigos</span>
         </button>
         <button
           onClick={() => setActiveTab('ips')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+          className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
             activeTab === 'ips' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <Ban className="w-4 h-4" />
-          <span>IPs Banidos</span>
+          <span>IPs</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            activeTab === 'notifications' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          <span>Avisos</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            activeTab === 'settings' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          <span>Config</span>
         </button>
       </div>
 
@@ -301,13 +528,17 @@ export default function Admin() {
                   className="w-full pl-9 pr-4 py-2 bg-gray-50 border-transparent rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
                 />
               </div>
+              <Button onClick={() => setIsInviteModalOpen(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Convidar Admin
+              </Button>
             </div>
             
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-100">
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuário</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email / ID</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">IP Recente</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cargo</th>
@@ -347,6 +578,11 @@ export default function Admin() {
                               <ShieldOff className="w-4 h-4" />
                             </Button>
                           )}
+                          {user.role !== 'AdminUser' && (
+                            <Button variant="ghost" size="sm" onClick={() => handlePromoteToAdmin(user.id)} className="text-indigo-600 hover:bg-indigo-50" title="Promover a Admin">
+                              <ShieldAlert className="w-4 h-4" />
+                            </Button>
+                          )}
                           {user.status !== 'banned' && user.id !== currentUser?.uid && (
                             <Button variant="ghost" size="sm" onClick={() => handleUpdateUserStatus(user.id, 'banned')} className="text-red-600 hover:bg-red-50" title="Banir">
                               <Ban className="w-4 h-4" />
@@ -369,6 +605,175 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="p-6 max-w-2xl mx-auto">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">Enviar Notificação / Aviso</h2>
+            
+            <form onSubmit={handleSendNotification} className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Destinatário</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="target" 
+                        checked={notifTarget === 'all'} 
+                        onChange={() => setNotifTarget('all')}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">Todos os Usuários</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="target" 
+                        checked={notifTarget === 'specific'} 
+                        onChange={() => setNotifTarget('specific')}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">Usuário Específico</span>
+                    </label>
+                  </div>
+                </div>
+
+                {notifTarget === 'specific' && (
+                  <Input
+                    label="Email do Usuário"
+                    type="email"
+                    value={notifEmail}
+                    onChange={(e) => setNotifEmail(e.target.value)}
+                    placeholder="usuario@exemplo.com"
+                    required
+                  />
+                )}
+
+                <Input
+                  label="Título"
+                  value={notifTitle}
+                  onChange={(e) => setNotifTitle(e.target.value)}
+                  placeholder="Ex: Manutenção Programada"
+                  required
+                />
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Mensagem</label>
+                  <textarea
+                    value={notifMessage}
+                    onChange={(e) => setNotifMessage(e.target.value)}
+                    rows={4}
+                    className="flex w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm"
+                    placeholder="Digite sua mensagem aqui..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Aviso</label>
+                  <div className="flex gap-2">
+                    {(['info', 'warning', 'success', 'error'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setNotifType(type)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors border ${
+                          notifType === type 
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700 ring-2 ring-indigo-500/20' 
+                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Ação (Opcional)</label>
+                    <select
+                      value={notifActionType}
+                      onChange={(e) => setNotifActionType(e.target.value as any)}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="none">Nenhuma</option>
+                      <option value="link">Link Externo</option>
+                      <option value="route">Redirecionamento Interno</option>
+                    </select>
+                  </div>
+                  
+                  {notifActionType !== 'none' && (
+                    <div>
+                      <Input
+                        label={notifActionType === 'link' ? "URL (https://...)" : "Rota (/caminho)"}
+                        value={notifActionPayload}
+                        onChange={(e) => setNotifActionPayload(e.target.value)}
+                        placeholder={notifActionType === 'link' ? "https://google.com" : "/menu"}
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Agendamento (Opcional)</label>
+                  <input
+                    type="datetime-local"
+                    value={notifScheduledDate}
+                    onChange={(e) => setNotifScheduledDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Deixe em branco para enviar imediatamente.</p>
+                </div>
+              </div>
+
+              <Button type="submit" isLoading={isSendingNotif} className="w-full">
+                <Send className="w-4 h-4 mr-2" />
+                {notifScheduledDate ? "Agendar Notificação" : "Enviar Notificação"}
+              </Button>
+            </form>
+
+            {scheduledNotifs.length > 0 && (
+              <div className="mt-12 border-t border-gray-100 pt-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Notificações Agendadas</h3>
+                <div className="space-y-3">
+                  {scheduledNotifs.map((notif) => (
+                    <div key={notif.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            notif.type === 'error' ? 'bg-red-100 text-red-700' :
+                            notif.type === 'warning' ? 'bg-amber-100 text-amber-700' :
+                            notif.type === 'success' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-indigo-100 text-indigo-700'
+                          }`}>
+                            {notif.type}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Para: {notif.target === 'all' ? 'Todos' : notif.targetEmail}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-gray-900">{notif.title}</h4>
+                        <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{notif.message}</p>
+                        <p className="text-xs text-indigo-600 mt-2 font-medium">
+                          Agendado para: {new Date(notif.scheduledAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteScheduled(notif.id)}
+                        className="text-gray-400 hover:text-red-600 p-1"
+                        title="Cancelar agendamento"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -457,7 +862,80 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {activeTab === 'settings' && (
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">Configurações Gerais</h2>
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Loja Virtual</h3>
+                  <p className="text-sm text-gray-500 mt-1">Ativar ou desativar a exibição da loja no menu principal.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={storeEnabled}
+                    onChange={handleToggleStore}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Invite Admin Modal */}
+      <AnimatePresence>
+        {isInviteModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 className="text-lg font-bold text-gray-900">Convidar Administrador</h3>
+                <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleInviteAdmin} className="p-6 space-y-4">
+                <p className="text-sm text-gray-500">
+                  O usuário receberá uma notificação com um link para aceitar o convite e se tornar um administrador.
+                </p>
+                <Input
+                  label="Email do Usuário"
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="usuario@exemplo.com"
+                />
+                
+                <div className="pt-4 flex gap-3">
+                  <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsInviteModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
+                    Enviar Convite
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Create Code Modal */}
       <AnimatePresence>

@@ -94,18 +94,18 @@ export default function Dashboard() {
         <motion.div
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="inline-flex items-center justify-center p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl text-indigo-600 dark:text-indigo-400 mb-2"
+          className="inline-flex items-center justify-center p-3 bg-indigo-100 rounded-2xl text-indigo-600 mb-2"
         >
           <Zap className="w-8 h-8" />
         </motion.div>
         <motion.h1 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-zinc-50 sm:text-5xl"
+          className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl"
         >
           <span>Encurte seus Links</span>
         </motion.h1>
-        <p className="text-lg text-gray-600 dark:text-zinc-400 max-w-2xl mx-auto">
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           <span>Crie links curtos e memoráveis em segundos. Rastreie cliques e gerencie suas URLs com facilidade.</span>
         </p>
       </div>
@@ -114,7 +114,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-2xl bg-white dark:bg-zinc-900 p-8 shadow-xl ring-1 ring-gray-900/5 dark:ring-zinc-800"
+        className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-900/5"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6 sm:grid-cols-2">
@@ -141,17 +141,17 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg"><span>{error}</span></p>}
+          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg"><span>{error}</span></p>}
           
           {success && (
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <div className="h-10 w-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
                   <LinkIcon className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-300"><span>Link criado com sucesso!</span></p>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-400/80"><span>{window.location.origin}/{success}</span></p>
+                  <p className="text-sm font-bold text-emerald-900"><span>Link criado com sucesso!</span></p>
+                  <p className="text-xs text-emerald-700"><span>{window.location.origin}/{success}</span></p>
                 </div>
               </div>
               <Button 
@@ -175,14 +175,14 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 flex items-center gap-4"
+          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
         >
-          <div className="h-12 w-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+          <div className="h-12 w-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
             <MousePointer2 className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm text-gray-500 dark:text-zinc-400 font-medium"><span>Total de Cliques</span></p>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-zinc-50"><span>{stats.totalClicks.toLocaleString()}</span></h3>
+            <p className="text-sm text-gray-500 font-medium"><span>Total de Cliques</span></p>
+            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.totalClicks.toLocaleString()}</span></h3>
           </div>
         </motion.div>
 
@@ -190,14 +190,14 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 flex items-center gap-4"
+          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
         >
-          <div className="h-12 w-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+          <div className="h-12 w-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
             <Globe className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm text-gray-500 dark:text-zinc-400 font-medium"><span>Links Ativos</span></p>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-zinc-50"><span>{stats.activeLinks}</span></h3>
+            <p className="text-sm text-gray-500 font-medium"><span>Links Ativos</span></p>
+            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.activeLinks}</span></h3>
           </div>
         </motion.div>
 
@@ -205,14 +205,14 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 flex items-center gap-4"
+          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
         >
-          <div className="h-12 w-12 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center text-violet-600 dark:text-violet-400">
+          <div className="h-12 w-12 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600">
             <BarChart3 className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm text-gray-500 dark:text-zinc-400 font-medium"><span>Total de Links</span></p>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-zinc-50"><span>{stats.totalLinks}</span></h3>
+            <p className="text-sm text-gray-500 font-medium"><span>Total de Links</span></p>
+            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.totalLinks}</span></h3>
           </div>
         </motion.div>
       </div>
@@ -220,30 +220,30 @@ export default function Dashboard() {
       <div className="grid sm:grid-cols-2 gap-6">
         <Link 
           to="/links" 
-          className="group p-6 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 hover:ring-indigo-500/30 dark:hover:ring-indigo-500/50 transition-all"
+          className="group p-6 bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 hover:ring-indigo-500/30 transition-all"
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="h-12 w-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+            <div className="h-12 w-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
               <LinkIcon className="w-6 h-6" />
             </div>
-            <ArrowRight className="w-5 h-5 text-gray-300 dark:text-zinc-600 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+            <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-50"><span>Gerenciar Links</span></h3>
-          <p className="text-sm text-gray-500 dark:text-zinc-400"><span>Visualize, edite e acompanhe o desempenho de todos os seus links.</span></p>
+          <h3 className="text-lg font-bold text-gray-900"><span>Gerenciar Links</span></h3>
+          <p className="text-sm text-gray-500"><span>Visualize, edite e acompanhe o desempenho de todos os seus links.</span></p>
         </Link>
 
         <Link 
           to="/stats" 
-          className="group p-6 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 hover:ring-indigo-500/30 dark:hover:ring-indigo-500/50 transition-all"
+          className="group p-6 bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 hover:ring-indigo-500/30 transition-all"
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="h-12 w-12 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center text-violet-600 dark:text-violet-400 group-hover:scale-110 transition-transform">
+            <div className="h-12 w-12 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600 group-hover:scale-110 transition-transform">
               <Zap className="w-6 h-6" />
             </div>
-            <ArrowRight className="w-5 h-5 text-gray-300 dark:text-zinc-600 group-hover:text-violet-500 dark:group-hover:text-violet-400 group-hover:translate-x-1 transition-all" />
+            <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-violet-500 group-hover:translate-x-1 transition-all" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-50"><span>Ver Estatísticas</span></h3>
-          <p className="text-sm text-gray-500 dark:text-zinc-400"><span>Análises detalhadas de cliques, origens e dispositivos.</span></p>
+          <h3 className="text-lg font-bold text-gray-900"><span>Ver Estatísticas</span></h3>
+          <p className="text-sm text-gray-500"><span>Análises detalhadas de cliques, origens e dispositivos.</span></p>
         </Link>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -7,10 +8,13 @@ import {
   Settings, 
   Link as LinkIcon,
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  ShoppingBag
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
+import { db } from "../firebase";
+import { ref, onValue } from "firebase/database";
 
 const menuItems = [
   {
@@ -59,6 +63,15 @@ const menuItems = [
     bgLight: "bg-green-50"
   },
   {
+    title: "Loja",
+    description: "Compre temas, emblemas e funcionalidades extras.",
+    icon: ShoppingBag,
+    path: "/store",
+    color: "bg-amber-500",
+    textColor: "text-amber-500",
+    bgLight: "bg-amber-50"
+  },
+  {
     title: "Configurações",
     description: "Preferências da conta e configurações globais.",
     icon: Settings,
@@ -71,8 +84,27 @@ const menuItems = [
 
 export default function Menu() {
   const { isAdmin } = useAuth() || { isAdmin: false };
+  const [storeEnabled, setStoreEnabled] = useState(true);
 
-  const displayedMenuItems = [...menuItems];
+  useEffect(() => {
+    const settingsRef = ref(db, "settings");
+    const unsubscribe = onValue(settingsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (data.storeEnabled !== undefined) {
+          setStoreEnabled(data.storeEnabled);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const displayedMenuItems = menuItems.filter(item => {
+    if (item.path === "/store" && !storeEnabled) return false;
+    return true;
+  });
+
   if (isAdmin) {
     displayedMenuItems.push({
       title: "Administração",
@@ -91,11 +123,11 @@ export default function Menu() {
         <motion.h1 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-50 sm:text-4xl"
+          className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
         >
           <span>Menu</span>
         </motion.h1>
-        <p className="text-gray-500 dark:text-zinc-400 max-w-2xl mx-auto">
+        <p className="text-gray-500 max-w-2xl mx-auto">
           <span>Acesse todas as suas ferramentas e configurações em um só lugar.</span>
         </p>
       </div>
@@ -110,21 +142,21 @@ export default function Menu() {
           >
             <Link 
               to={item.path}
-              className="group relative flex flex-col h-full bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 transition-all hover:shadow-md hover:ring-indigo-500/20 dark:hover:ring-indigo-500/40"
+              className="group relative flex flex-col h-full bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 transition-all hover:shadow-md hover:ring-indigo-500/20"
             >
-              <div className={`h-12 w-12 rounded-xl ${item.bgLight} ${item.textColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              <div className={`h-12 w-12 rounded-xl ${item.bgLight} dark:bg-opacity-10 ${item.textColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                 <item.icon className="h-6 w-6" />
               </div>
               
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-50 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                 <span>{item.title}</span>
               </h3>
               
-              <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6 flex-grow">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-grow">
                 <span>{item.description}</span>
               </p>
               
-              <div className="flex items-center text-sm font-medium text-gray-400 dark:text-zinc-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mt-auto">
+              <div className="flex items-center text-sm font-medium text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mt-auto">
                 <span>Abrir</span>
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>

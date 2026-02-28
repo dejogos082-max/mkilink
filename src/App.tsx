@@ -19,6 +19,11 @@ import BioPage from "./pages/BioPage";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 
+import Store from "./pages/Store";
+import ProductDetails from "./pages/ProductDetails";
+import CheckoutPage from "./pages/Checkout";
+import AcceptInvite from "./pages/AcceptInvite";
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth()!;
   
@@ -133,12 +138,50 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/store"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Store />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/store/product/:id"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <ProductDetails />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/store/checkout/:id"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <CheckoutPage />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
                   path="/admin"
                   element={
                     <PrivateRoute>
                       <Layout>
                         <Admin />
                       </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/accept-invite/:inviteCode"
+                  element={
+                    <PrivateRoute>
+                      <AcceptInvite />
                     </PrivateRoute>
                   }
                 />

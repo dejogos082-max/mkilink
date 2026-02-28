@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 interface Settings {
-  theme: "light" | "dark";
   blurEnabled: boolean;
   hardwareAcceleration: boolean;
+  telemetryEnabled: boolean;
 }
 
 interface SettingsContextType {
@@ -16,22 +16,24 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => {
     const saved = localStorage.getItem("app_settings");
-    return saved ? JSON.parse(saved) : {
-      theme: "light",
+    // Remove theme from saved settings if it exists
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      delete parsed.theme;
+      return parsed;
+    }
+    return {
       blurEnabled: true,
       hardwareAcceleration: true,
+      telemetryEnabled: true,
     };
   });
 
   useEffect(() => {
     localStorage.setItem("app_settings", JSON.stringify(settings));
     
-    // Apply theme to document
-    if (settings.theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    // Ensure dark mode is always removed
+    document.documentElement.classList.remove("dark");
 
     // Apply blur class to body if needed
     if (settings.blurEnabled) {
