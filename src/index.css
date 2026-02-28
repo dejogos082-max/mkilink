@@ -21,6 +21,7 @@
 
 :root {
   --hw-accel: none;
+  color-scheme: only light;
 }
 
 * {

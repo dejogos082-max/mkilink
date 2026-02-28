@@ -190,6 +190,13 @@ export default function Admin() {
   };
 
   const handleRemoveAdmin = async (userId: string) => {
+    const isSelf = userId === currentUser?.uid;
+    if (isSelf) {
+      if (!confirm("ATENÇÃO: Você está prestes a remover seus próprios privilégios de administrador. Você perderá acesso ao painel imediatamente. Deseja continuar?")) {
+        return;
+      }
+    }
+
     try {
       await remove(ref(db, `users/${userId}/role`));
       showToast("Privilégios de administrador removidos");
@@ -573,8 +580,14 @@ export default function Admin() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {user.role === 'AdminUser' && user.id !== currentUser?.uid && (
-                            <Button variant="ghost" size="sm" onClick={() => handleRemoveAdmin(user.id)} className="text-orange-600 hover:bg-orange-50" title="Remover Admin">
+                          {user.role === 'AdminUser' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleRemoveAdmin(user.id)} 
+                              className="text-orange-600 hover:bg-orange-50" 
+                              title={user.id === currentUser?.uid ? "Remover meus privilégios" : "Remover Admin"}
+                            >
                               <ShieldOff className="w-4 h-4" />
                             </Button>
                           )}
