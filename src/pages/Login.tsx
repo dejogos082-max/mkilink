@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { signInWithEmailAndPassword, signOut, GoogleAuthProvider, GithubAuthProvider, OAuthProvider, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut, GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { ref, get, set, update } from "firebase/database";
 import { Link, useNavigate } from "react-router-dom";
@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "motion/react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 import { Github } from "lucide-react";
+import { loginGithub } from "../lib/auth";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -30,17 +31,16 @@ export default function Login() {
       setError("");
       setLoading(true);
       
-      let provider;
-      switch (providerName) {
-        case 'google':
-          provider = new GoogleAuthProvider();
-          break;
-        case 'github':
-          provider = new GithubAuthProvider();
-          break;
+      let result;
+      if (providerName === 'google') {
+        const provider = new GoogleAuthProvider();
+        result = await signInWithPopup(auth, provider);
+      } else if (providerName === 'github') {
+        result = await loginGithub();
+      } else {
+        throw new Error("Provedor não suportado");
       }
 
-      const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
       // Check if user exists in Realtime DB
