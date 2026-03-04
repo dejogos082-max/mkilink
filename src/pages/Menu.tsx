@@ -24,7 +24,7 @@ const menuItems = [
     title: "Dashboard",
     description: "Visão geral da sua conta e atalhos rápidos.",
     icon: LayoutDashboard,
-    path: "/",
+    path: "/dashboard",
     color: "bg-indigo-500",
     textColor: "text-indigo-500",
     bgLight: "bg-indigo-50"

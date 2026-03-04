@@ -5,13 +5,11 @@ import { ref, query, orderByChild, equalTo, onValue } from "firebase/database";
 import { 
   Link as LinkIcon, 
   MousePointer2, 
-  TrendingUp, 
   Activity,
   Plus,
   Zap,
   ArrowRight,
-  DollarSign,
-  Eye
+  Folder
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
@@ -25,11 +23,8 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     totalLinks: 0,
     totalClicks: 0,
-    activeLinks: 0,
-    earnings: 0,
-    todayEarnings: 0,
-    cpm: 1.5, // Default CPM
-    totalViews: 0
+    totalCampaigns: 0,
+    performance: 0
   });
   const [recentLinks, setRecentLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,67 +42,66 @@ export default function Dashboard() {
       equalTo(currentUser.uid)
     );
 
-    const earningsRef = ref(db, `earnings/${currentUser.uid}`);
-    const viewsRef = query(ref(db, `views/${currentUser.uid}`), orderByChild("timestamp"));
+    const campaignsRef = query(
+      ref(db, "campaigns"),
+      orderByChild("userId"),
+      equalTo(currentUser.uid)
+    );
+
+    // We'll use views to calculate performance (CTR)
+    const viewsRef = query(ref(db, `views/${currentUser.uid}`));
+
+    let linksData = { count: 0, clicks: 0 };
+    let campaignsCount = 0;
+    let viewsCount = 0;
+
+    const updateStats = () => {
+      const performance = viewsCount > 0 ? (linksData.clicks / viewsCount) * 100 : 0;
+      setStats({
+        totalLinks: linksData.count,
+        totalClicks: linksData.clicks,
+        totalCampaigns: campaignsCount,
+        performance
+      });
+      setLoading(false);
+    };
 
     const unsubscribeLinks = onValue(linksRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const linksList = Object.values(data);
-        const totalLinks = linksList.length;
-        const totalClicks = linksList.reduce((acc: number, curr: any) => acc + (curr.clicks || 0), 0);
-        const activeLinks = linksList.length; // Simplified for now
+        linksData.count = linksList.length;
+        linksData.clicks = linksList.reduce((acc: number, curr: any) => acc + (curr.clicks || 0), 0);
 
         // Get recent 5 links
         const recent = Object.entries(data)
             .map(([key, value]: [string, any]) => ({ id: key, ...value }))
             .sort((a, b) => b.createdAt - a.createdAt)
             .slice(0, 5);
-
-        setStats(prev => ({ ...prev, totalLinks, totalClicks, activeLinks }));
         setRecentLinks(recent);
       } else {
-        setStats(prev => ({ ...prev, totalLinks: 0, totalClicks: 0, activeLinks: 0 }));
+        linksData = { count: 0, clicks: 0 };
         setRecentLinks([]);
       }
-      setLoading(false);
+      updateStats();
     });
 
-    const unsubscribeEarnings = onValue(earningsRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            setStats(prev => ({ 
-                ...prev, 
-                earnings: data.balance || 0,
-                totalViews: data.totalViews || 0
-            }));
-        }
+    const unsubscribeCampaigns = onValue(campaignsRef, (snapshot) => {
+      const data = snapshot.val();
+      campaignsCount = data ? Object.keys(data).length : 0;
+      updateStats();
     });
 
-    // Calculate today's earnings from views
-    // This might be heavy if many views, but for MVP it's okay.
-    // Better to aggregate on server side or store daily stats.
-    // For now, let's just fetch all views and filter client side (careful with scale).
-    // Optimization: Query views by timestamp startAt(today)
-    const startOfDay = new Date();
-    startOfDay.setHours(0,0,0,0);
-    
-    // We can't easily query by timestamp AND userId in simple firebase structure without composite index.
-    // Assuming `views/{userId}` contains all views for that user.
     const unsubscribeViews = onValue(viewsRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const views = Object.values(data) as any[];
-            const todayViews = views.filter(v => v.timestamp >= startOfDay.getTime());
-            const todayEarnings = todayViews.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-            setStats(prev => ({ ...prev, todayEarnings }));
-        }
+      const data = snapshot.val();
+      viewsCount = data ? Object.keys(data).length : 0;
+      updateStats();
     });
 
     return () => {
-        unsubscribeLinks();
-        unsubscribeEarnings();
-        unsubscribeViews();
+      unsubscribeLinks();
+      unsubscribeCampaigns();
+      unsubscribeViews();
     };
   }, [currentUser]);
 
@@ -199,34 +193,6 @@ export default function Dashboard() {
       >
         <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Ganhos Totais</p>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {loading ? "..." : `$${stats.earnings.toFixed(2)}`}
-              </h3>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Ganhos Hoje</p>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {loading ? "..." : `$${stats.todayEarnings.toFixed(2)}`}
-              </h3>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
-          <div className="flex items-center gap-4">
             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
               <MousePointer2 className="w-6 h-6" />
             </div>
@@ -241,15 +207,42 @@ export default function Dashboard() {
 
         <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
-              <Eye className="w-6 h-6" />
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+              <Activity className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Visualizações CPM</p>
+              <p className="text-sm font-medium text-gray-500">Performance</p>
               <h3 className="text-2xl font-bold text-gray-900">
-                {loading ? "..." : stats.totalViews.toLocaleString()}
+                {loading ? "..." : `${stats.performance.toFixed(1)}%`}
               </h3>
-              <p className="text-xs text-gray-400 mt-1">CPM: ${stats.cpm.toFixed(2)}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+              <LinkIcon className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total de Links</p>
+              <h3 className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : stats.totalLinks.toLocaleString()}
+              </h3>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+              <Folder className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total de Campanhas</p>
+              <h3 className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : stats.totalCampaigns.toLocaleString()}
+              </h3>
             </div>
           </div>
         </motion.div>

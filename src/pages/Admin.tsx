@@ -171,7 +171,7 @@ export default function Admin() {
   }, [isAdmin]);
 
   if (!isAdmin) {
-    return <Navigate to="/" />;
+    return <Navigate to="/dashboard" />;
   }
 
   const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {

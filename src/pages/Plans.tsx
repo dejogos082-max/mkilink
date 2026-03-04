@@ -12,13 +12,13 @@ export default function Plans() {
       period: "",
       features: [
         "Até 30 links curtos",
-        "Até 2 links monetizados",
+        "Até 10 links monetizados",
         "1 página link na bio",
-        "1 campanha",
+        "5 campanhas",
         "Estatísticas básicas",
         "QR Code automático",
         "Domínio padrão da plataforma",
-        "Histórico de cliques limitado (7 dias)"
+        "Histórico de cliques avançado"
       ],
       restrictions: [
         "Sem monetização avançada",
@@ -89,9 +89,9 @@ export default function Plans() {
 
   const comparisonData = [
     { feature: "Links curtos", free: "30", premium: "Ilimitado", business: "Ilimitado" },
-    { feature: "Links monetizados", free: "2", premium: "Ilimitado", business: "Ilimitado" },
+    { feature: "Links monetizados", free: "10", premium: "Ilimitado", business: "Ilimitado" },
     { feature: "Link na bio", free: "1", premium: "Ilimitado", business: "Ilimitado" },
-    { feature: "Campanhas", free: "1", premium: "Ilimitado", business: "Ilimitado" },
+    { feature: "Campanhas", free: "5", premium: "Ilimitado", business: "Ilimitado" },
     { feature: "Analytics", free: "Básico", premium: "Avançado", business: "Profissional" },
     { feature: "Domínio próprio", free: false, premium: true, business: true },
     { feature: "API", free: false, premium: false, business: true },

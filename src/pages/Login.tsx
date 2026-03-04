@@ -162,7 +162,7 @@ export default function Login() {
       console.error("Failed to log login:", logErr);
     }
 
-    navigate("/");
+    navigate("/dashboard");
   }
 
   const handleCancelMfa = async () => {

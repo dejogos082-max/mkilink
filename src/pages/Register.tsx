@@ -79,7 +79,7 @@ export default function Register() {
         referredBy: referralCode || null
       });
 
-      navigate("/");
+      navigate("/dashboard");
     } catch (err: any) {
       console.error(err);
       setError("Failed to create an account. " + err.message);

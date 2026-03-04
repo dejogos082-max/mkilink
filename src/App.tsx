@@ -47,6 +47,22 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return currentUser ? <>{children}</> : <Navigate to="/login" />;
 }
 
+import Landing from "./pages/Landing";
+
+function Home() {
+  const { currentUser, loading } = useAuth()!;
+  
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
+        <div className="relative rounded-full border-4 border-indigo-600 border-t-transparent animate-spin h-12 w-12"></div>
+      </div>
+    );
+  }
+  
+  return currentUser ? <Navigate to="/dashboard" /> : <Landing />;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -56,6 +72,7 @@ export default function App() {
             <Router>
               <Routes>
                 {/* Public Routes */}
+                <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Layout><Login /></Layout>} />
                 <Route path="/auth0-login" element={<Layout><Auth0Login /></Layout>} />
                 <Route path="/register" element={<Layout><Register /></Layout>} />
@@ -68,7 +85,7 @@ export default function App() {
 
                 {/* Protected Routes */}
                 <Route
-                  path="/"
+                  path="/dashboard"
                   element={
                     <PrivateRoute>
                       <Layout>
