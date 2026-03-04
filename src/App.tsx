@@ -30,6 +30,7 @@ import Campaigns from "./pages/Campaigns";
 import CustomDomains from "./pages/CustomDomains";
 
 import Affiliates from "./pages/Affiliates";
+import EditLink from "./pages/EditLink";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth()!;
@@ -90,6 +91,16 @@ export default function App() {
                     <PrivateRoute>
                       <Layout>
                         <LinksManager />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/links/edit/:shortCode"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <EditLink />
                       </Layout>
                     </PrivateRoute>
                   }
