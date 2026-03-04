@@ -6,63 +6,127 @@
     <meta name="color-scheme" content="only light">
     <meta name="monetag" content="%VITE_MONETAG_ID%">
     <title>MKI Links PRO</title>
+    <style>
+      .mki-app .only-web { display: none; }
+      .mki-app .only-app { display: block; }
+    </style>
     <script>
-      (async function(){
-        // Estado global
-        window.__APP_ENV__ = {
+      (function () {
+        const STATE = {
           isApp: false,
-          appName: null,
+          verified: false,
+          app: null,
           platform: null,
           version: null,
-          verified: false,
+          nonce: null,
+          lastError: null,
         };
 
-        // 1) Verifica se existe bridge injetada pelo app
-        const bridge = window.MKI_APP; // nome que vamos usar no Sketchware
-        if (!bridge || typeof bridge.getHello !== "function") {
-          // não está no app (ou bridge não foi injetada)
-          return;
+        // expõe para debug
+        window.__MKI_APP_ENV__ = STATE;
+
+        function markVerified(info) {
+          STATE.isApp = true;
+          STATE.verified = true;
+          STATE.app = info.app || "MKI";
+          STATE.platform = info.platform || "android";
+          STATE.version = info.version || "unknown";
+          STATE.nonce = info.nonce || null;
+
+          document.documentElement.classList.add("mki-app");
+          document.documentElement.setAttribute("data-mki-app", "true");
+          document.documentElement.setAttribute("data-mki-platform", STATE.platform);
+          document.documentElement.setAttribute("data-mki-version", STATE.version);
+
+          window.dispatchEvent(new CustomEvent("mki:app-ready", { detail: { ...STATE } }));
         }
 
-        try {
-          // 2) handshake: pega um "hello" do app
-          // retorna JSON string: {"app":"MKI","platform":"android","version":"1.0.0","nonce":"..."}
-          const helloStr = await bridge.getHello();
-          const hello = JSON.parse(helloStr);
-
-          // 3) Validação simples (mínimo recomendado)
-          if (hello.app !== "MKI" || hello.platform !== "android" || !hello.nonce) return;
-
-          // 4) desafio: site gera challenge e pede assinatura do app
-          const challenge = "cfpages-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-          const signedStr = await bridge.signChallenge(challenge);
-          const signed = JSON.parse(signedStr);
-
-          // 5) valida o retorno
-          // aqui a validação é "fraca" (sem servidor), mas já evita detecção fake sem bridge real.
-          // Se você quiser validação forte, eu te mostro depois com um Worker/endpoint.
-          if (signed.challenge !== challenge || signed.nonce !== hello.nonce) return;
-
-          // ✅ OK: ativar modo app
-          window.__APP_ENV__ = {
-            isApp: true,
-            appName: hello.app,
-            platform: hello.platform,
-            version: hello.version || "unknown",
-            verified: true,
-          };
-
-          document.documentElement.classList.add("is-app");
-          window.dispatchEvent(new CustomEvent("mki:app-ready", { detail: window.__APP_ENV__ }));
-        } catch (e) {
-          // falhou handshake
+        function safeJsonParse(str) {
+          try { return JSON.parse(str); } catch { return null; }
         }
+
+        // IMPORTANTE: Em WebView/Sketchware, chamadas geralmente são SÍNCRONAS
+        function callBridge(fnName, ...args) {
+          const b = window.MKI_APP;
+          if (!b) return null;
+          const fn = b[fnName];
+          if (typeof fn !== "function") return null;
+
+          try {
+            const res = fn.apply(b, args);
+            // res pode ser string JSON
+            return res;
+          } catch (e) {
+            STATE.lastError = String(e);
+            return null;
+          }
+        }
+
+        function tryHandshakeOnce() {
+          const bridge = window.MKI_APP;
+          if (!bridge) return false;
+
+          const helloStr = callBridge("getHello");
+          if (!helloStr) return false;
+
+          const hello = safeJsonParse(helloStr);
+          if (!hello || hello.app !== "MKI" || hello.platform !== "android" || !hello.nonce) return false;
+
+          const challenge = "mki-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+          const signedStr = callBridge("signChallenge", challenge);
+          if (!signedStr) return false;
+
+          const signed = safeJsonParse(signedStr);
+          if (!signed) return false;
+
+          // validação prática
+          if (signed.challenge !== challenge) return false;
+          if (signed.nonce !== hello.nonce) return false;
+
+          markVerified(hello);
+          return true;
+        }
+
+        // Faz polling curto (resolve timing/SPA)
+        function runHandshakeWithRetry() {
+          let tries = 0;
+          const maxTries = 80; // ~8s (80 * 100ms)
+
+          const timer = setInterval(() => {
+            tries++;
+
+            if (STATE.verified) {
+              clearInterval(timer);
+              return;
+            }
+
+            const ok = tryHandshakeOnce();
+            if (ok || tries >= maxTries) {
+              clearInterval(timer);
+            }
+          }, 100);
+        }
+
+        // 1) primeira tentativa
+        runHandshakeWithRetry();
+
+        // 2) SPA: tenta também após mudanças de rota
+        const _pushState = history.pushState;
+        history.pushState = function () {
+          const ret = _pushState.apply(this, arguments);
+          setTimeout(runHandshakeWithRetry, 50);
+          return ret;
+        };
+
+        window.addEventListener("popstate", () => setTimeout(runHandshakeWithRetry, 50));
+        window.addEventListener("hashchange", () => setTimeout(runHandshakeWithRetry, 50));
       })();
+    </script>
 
-      window.addEventListener("mki:app-ready", (ev) => {
-        console.log("Rodando no app:", ev.detail);
-        // Exemplo: esconder navbar do site e usar navbar nativa do app
-        document.body.classList.add("app-mode");
+    <script>
+      window.addEventListener("mki:app-ready", (e) => {
+        // Mostra na hora que detectou
+        alert("✅ MKI APP DETECTADO\n" + JSON.stringify(e.detail, null, 2));
       });
     </script>
   </head>

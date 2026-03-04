@@ -65,6 +65,8 @@ function Home() {
   return currentUser ? <Navigate to="/dashboard" /> : <Landing />;
 }
 
+import { NativeAppProvider } from "./contexts/NativeAppContext";
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -72,10 +74,12 @@ export default function App() {
         <AuthProvider>
           <SettingsProvider>
             <Router>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Layout><Login /></Layout>} />
+              <NativeAppProvider>
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/appnativo" element={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>} />
+                  <Route path="/login" element={<Layout><Login /></Layout>} />
                 <Route path="/auth0-login" element={<Layout><Auth0Login /></Layout>} />
                 <Route path="/register" element={<Layout><Register /></Layout>} />
                 
@@ -295,6 +299,7 @@ export default function App() {
                   }
                 />
               </Routes>
+              </NativeAppProvider>
             </Router>
           </SettingsProvider>
         </AuthProvider>

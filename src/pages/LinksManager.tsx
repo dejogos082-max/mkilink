@@ -52,6 +52,7 @@ interface LinkData {
 }
 
 import { QRCodeCanvas } from "qrcode.react";
+import { isNativeAppMode } from "../utils/nativeMode";
 
 export default function LinksManager() {
   const { currentUser } = useAuth();
@@ -295,7 +296,8 @@ export default function LinksManager() {
   };
 
   const openEditModal = (link: LinkData) => {
-    navigate(`/links/edit/${link.shortCode}`);
+    const prefix = isNativeAppMode() ? '/appnativo' : '';
+    navigate(`${prefix}/links/edit/${link.shortCode}`);
   };
 
   const filteredAndSortedLinks = links
@@ -358,7 +360,7 @@ export default function LinksManager() {
           <p className="text-sm text-gray-500 mt-1"><span>Crie, edite e acompanhe todos os seus links curtos.</span></p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => navigate('/simple-links')} className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-transparent shadow-md shadow-amber-500/20">
+          <Button onClick={() => navigate(isNativeAppMode() ? '/appnativo/simple-links' : '/simple-links')} className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-transparent shadow-md shadow-amber-500/20">
             <Zap className="w-4 h-4 mr-2" />
             <span>Links Curtos</span>
           </Button>

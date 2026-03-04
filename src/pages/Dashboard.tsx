@@ -16,6 +16,7 @@ import { motion } from "motion/react";
 import { Button } from "../components/Button";
 import { nanoid } from "nanoid";
 import { set } from "firebase/database";
+import { isNativeAppMode } from "../utils/nativeMode";
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
@@ -139,7 +140,8 @@ export default function Dashboard() {
       else setSimpleLinkUrl("");
 
       // Show success feedback (could be a toast, but for now just clear input)
-      navigate(type === 'simple' ? '/simple-links' : '/links');
+      const prefix = isNativeAppMode() ? '/appnativo' : '';
+      navigate(type === 'simple' ? `${prefix}/simple-links` : `${prefix}/links`);
     } catch (error) {
       console.error("Error creating link:", error);
     } finally {
@@ -174,10 +176,10 @@ export default function Dashboard() {
           <p className="text-gray-500 mt-1">Aqui está o resumo do seu desempenho hoje.</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={() => navigate('/links')} variant="secondary">
+          <Button onClick={() => navigate(isNativeAppMode() ? '/appnativo/links' : '/links')} variant="secondary">
             Gerenciar Links
           </Button>
-          <Button onClick={() => navigate('/plans')} className="bg-gradient-to-r from-indigo-600 to-purple-600 border-0">
+          <Button onClick={() => navigate(isNativeAppMode() ? '/appnativo/plans' : '/plans')} className="bg-gradient-to-r from-indigo-600 to-purple-600 border-0">
             <Zap className="w-4 h-4 mr-2" />
             Fazer Upgrade
           </Button>
@@ -362,7 +364,7 @@ export default function Dashboard() {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-gray-900">Links Recentes</h3>
-            <Link to="/links" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
+            <Link to={isNativeAppMode() ? "/appnativo/links" : "/links"} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
               Ver todos <ArrowRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
@@ -374,7 +376,7 @@ export default function Dashboard() {
               <div className="text-center py-8 text-gray-400">Nenhum link recente</div>
             ) : (
               recentLinks.map((link) => (
-                <div key={link.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors group cursor-pointer" onClick={() => navigate('/links')}>
+                <div key={link.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors group cursor-pointer" onClick={() => navigate(isNativeAppMode() ? '/appnativo/links' : '/links')}>
                   <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
                     <LinkIcon className="w-5 h-5" />
                   </div>
