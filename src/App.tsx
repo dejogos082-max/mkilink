@@ -26,6 +26,11 @@ import AcceptInvite from "./pages/AcceptInvite";
 
 import Plans from "./pages/Plans";
 
+import Campaigns from "./pages/Campaigns";
+import CustomDomains from "./pages/CustomDomains";
+
+import Affiliates from "./pages/Affiliates";
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth()!;
   
@@ -175,6 +180,36 @@ export default function App() {
                     <PrivateRoute>
                       <Layout>
                         <CheckoutPage />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/campaigns"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Campaigns />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/custom-domains"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <CustomDomains />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/affiliates"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Affiliates />
                       </Layout>
                     </PrivateRoute>
                   }

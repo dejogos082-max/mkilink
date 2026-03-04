@@ -10,7 +10,9 @@ import {
   ArrowRight,
   ShieldAlert,
   ShoppingBag,
-  CreditCard
+  CreditCard,
+  Folder,
+  Users
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -46,6 +48,15 @@ const menuItems = [
     bgLight: "bg-pink-50"
   },
   {
+    title: "Campanhas",
+    description: "Organize seus links em grupos.",
+    icon: Folder,
+    path: "/campaigns",
+    color: "bg-orange-500",
+    textColor: "text-orange-500",
+    bgLight: "bg-orange-50"
+  },
+  {
     title: "Estatísticas",
     description: "Análises detalhadas para todos os seus links e campanhas.",
     icon: BarChart3,
@@ -62,6 +73,15 @@ const menuItems = [
     color: "bg-green-500",
     textColor: "text-green-500",
     bgLight: "bg-green-50"
+  },
+  {
+    title: "Afiliados",
+    description: "Ganhe dinheiro indicando amigos.",
+    icon: Users,
+    path: "/affiliates",
+    color: "bg-emerald-500",
+    textColor: "text-emerald-500",
+    bgLight: "bg-emerald-50"
   },
   {
     title: "Loja",

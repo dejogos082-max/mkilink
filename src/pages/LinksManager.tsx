@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
-import { ref, push, set, onValue, query, orderByChild, equalTo, remove, update } from "firebase/database";
+import { ref, push, set, onValue, query, orderByChild, equalTo, remove, update, runTransaction } from "firebase/database";
 import { nanoid } from "nanoid";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
@@ -24,7 +24,8 @@ import {
   Check,
   Zap,
   Tag,
-  Globe
+  Globe,
+  QrCode
 } from "lucide-react";
 
 interface LinkData {
@@ -36,14 +37,21 @@ interface LinkData {
   clicks: number;
   type?: string;
   tags?: string[];
+  campaignId?: string;
+  customDomain?: string;
   settings?: {
     adCount?: number;
     duration?: number;
     expiresAt?: number | null;
     layout?: 'default' | 'header';
     headerTitle?: string;
+    password?: string | null;
+    maxClicks?: number | null;
+    rotationDestinations?: string[] | null;
   };
 }
+
+import { QRCodeCanvas } from "qrcode.react";
 
 export default function LinksManager() {
   const { currentUser } = useAuth();
@@ -51,9 +59,15 @@ export default function LinksManager() {
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // New Data States
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [customDomains, setCustomDomains] = useState<any[]>([]);
+
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrLink, setQrLink] = useState<LinkData | null>(null);
   
   // Form States
   const [url, setUrl] = useState("");
@@ -62,6 +76,13 @@ export default function LinksManager() {
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // New Form Fields
+  const [password, setPassword] = useState("");
+  const [maxClicks, setMaxClicks] = useState("");
+  const [rotationUrls, setRotationUrls] = useState("");
+  const [selectedCampaign, setSelectedCampaign] = useState("");
+  const [selectedDomain, setSelectedDomain] = useState("");
+
   // Edit States
   const [currentLink, setCurrentLink] = useState<LinkData | null>(null);
   const [linkToDelete, setLinkToDelete] = useState<string | null>(null);
@@ -72,6 +93,11 @@ export default function LinksManager() {
     layout: "default" as 'default' | 'header',
     headerTitle: "",
     tags: "",
+    password: "",
+    maxClicks: "",
+    rotationUrls: "",
+    campaignId: "",
+    customDomain: ""
   });
 
   // Search & Filter
@@ -108,13 +134,14 @@ export default function LinksManager() {
   useEffect(() => {
     if (!currentUser) return;
 
+    // Fetch Links
     const linksRef = query(
       ref(db, "short_links"),
       orderByChild("userId"),
       equalTo(currentUser.uid)
     );
 
-    const unsubscribe = onValue(linksRef, (snapshot) => {
+    const unsubscribeLinks = onValue(linksRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const linkList = Object.entries(data).map(([key, value]: [string, any]) => ({
@@ -128,7 +155,33 @@ export default function LinksManager() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Fetch Campaigns
+    const campaignsRef = query(ref(db, "campaigns"), orderByChild("userId"), equalTo(currentUser.uid));
+    const unsubscribeCampaigns = onValue(campaignsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            setCampaigns(Object.entries(data).map(([k, v]: [string, any]) => ({ id: k, ...v })));
+        } else {
+            setCampaigns([]);
+        }
+    });
+
+    // Fetch Custom Domains
+    const domainsRef = query(ref(db, "custom_domains"), orderByChild("userId"), equalTo(currentUser.uid));
+    const unsubscribeDomains = onValue(domainsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            setCustomDomains(Object.entries(data).map(([k, v]: [string, any]) => ({ id: k, ...v })));
+        } else {
+            setCustomDomains([]);
+        }
+    });
+
+    return () => {
+        unsubscribeLinks();
+        unsubscribeCampaigns();
+        unsubscribeDomains();
+    };
   }, [currentUser]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -148,6 +201,7 @@ export default function LinksManager() {
       const newLinkRef = ref(db, `short_links/${shortCode}`);
       
       const tagList = tags.split(',').map(t => t.trim()).filter(t => t);
+      const rotationList = rotationUrls.split('\n').map(u => u.trim()).filter(u => u);
 
       await set(newLinkRef, {
         originalUrl: url,
@@ -156,16 +210,37 @@ export default function LinksManager() {
         createdAt: Date.now(),
         clicks: 0,
         tags: tagList,
+        campaignId: selectedCampaign || null,
+        customDomain: selectedDomain || null,
         settings: {
             adCount: 3,
             duration: 15,
-            expiresAt: null
+            expiresAt: null,
+            password: password || null,
+            maxClicks: maxClicks ? parseInt(maxClicks) : null,
+            rotationDestinations: rotationList.length > 0 ? rotationList : null
         }
       });
+
+      // Update Campaign Link Count
+      if (selectedCampaign) {
+        const campaignRef = ref(db, `campaigns/${selectedCampaign}`);
+        runTransaction(campaignRef, (campaign) => {
+            if (campaign) {
+                campaign.links = (campaign.links || 0) + 1;
+            }
+            return campaign;
+        });
+      }
 
       setUrl("");
       setCustomAlias("");
       setTags("");
+      setPassword("");
+      setMaxClicks("");
+      setRotationUrls("");
+      setSelectedCampaign("");
+      setSelectedDomain("");
       setIsCreateModalOpen(false);
       showToast("Link criado com sucesso!");
     } catch (err: any) {
@@ -244,7 +319,12 @@ export default function LinksManager() {
         expiresIn: "never",
         layout: link.settings?.layout ?? 'default',
         headerTitle: link.settings?.headerTitle ?? "Valecraft",
-        tags: link.tags?.join(', ') || ""
+        tags: link.tags?.join(', ') || "",
+        password: link.settings?.password || "",
+        maxClicks: link.settings?.maxClicks ? String(link.settings.maxClicks) : "",
+        rotationUrls: link.settings?.rotationDestinations?.join('\n') || "",
+        campaignId: link.campaignId || "",
+        customDomain: link.customDomain || ""
     });
     setIsEditModalOpen(true);
   };
@@ -261,10 +341,13 @@ export default function LinksManager() {
     if (settingsForm.expiresIn === "30d") expiresAt = now + 30 * 24 * 3600 * 1000;
 
     const tagList = settingsForm.tags.split(',').map(t => t.trim()).filter(t => t);
+    const rotationList = settingsForm.rotationUrls.split('\n').map(u => u.trim()).filter(u => u);
 
     try {
         await update(ref(db, `short_links/${currentLink.shortCode}`), {
-            tags: tagList
+            tags: tagList,
+            campaignId: settingsForm.campaignId || null,
+            customDomain: settingsForm.customDomain || null
         });
         
         await update(ref(db, `short_links/${currentLink.shortCode}/settings`), {
@@ -272,7 +355,10 @@ export default function LinksManager() {
             duration: Math.max(15, Number(settingsForm.duration)),
             expiresAt: expiresAt,
             layout: settingsForm.layout,
-            headerTitle: settingsForm.headerTitle
+            headerTitle: settingsForm.headerTitle,
+            password: settingsForm.password || null,
+            maxClicks: settingsForm.maxClicks ? parseInt(settingsForm.maxClicks) : null,
+            rotationDestinations: rotationList.length > 0 ? rotationList : null
         });
         setIsEditModalOpen(false);
         showToast("Configurações salvas com sucesso!");
@@ -633,6 +719,15 @@ export default function LinksManager() {
                             variant="ghost" 
                             size="sm" 
                             className="h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
+                            onClick={() => { setQrLink(link); setIsQrModalOpen(true); }}
+                          >
+                            <QrCode className="w-3.5 h-3.5 sm:mr-1.5" />
+                            <span className="hidden sm:inline text-xs font-medium">QR Code</span>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
                             onClick={() => openEditModal(link)}
                           >
                             <Settings className="w-3.5 h-3.5 sm:mr-1.5" />
@@ -741,6 +836,62 @@ export default function LinksManager() {
                   onChange={(e) => setTags(e.target.value)}
                   placeholder="marketing, social, promo (separadas por vírgula)"
                 />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700">Campanha</label>
+                        <select
+                            value={selectedCampaign}
+                            onChange={(e) => setSelectedCampaign(e.target.value)}
+                            className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                        >
+                            <option value="">Nenhuma</option>
+                            {campaigns.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700">Domínio</label>
+                        <select
+                            value={selectedDomain}
+                            onChange={(e) => setSelectedDomain(e.target.value)}
+                            className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                        >
+                            <option value="">Padrão (valecraft.com)</option>
+                            {customDomains.filter(d => d.verified).map(d => (
+                                <option key={d.id} value={d.domain}>{d.domain}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                        label="Senha (Opcional)"
+                        type="text"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Proteger link"
+                    />
+                    <Input
+                        label="Limite de Cliques"
+                        type="number"
+                        value={maxClicks}
+                        onChange={(e) => setMaxClicks(e.target.value)}
+                        placeholder="Ex: 100"
+                    />
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Rotação de Links (Opcional)</label>
+                    <textarea
+                        value={rotationUrls}
+                        onChange={(e) => setRotationUrls(e.target.value)}
+                        placeholder="Uma URL por linha. O sistema irá alternar aleatoriamente entre a URL original e estas."
+                        className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3 min-h-[80px]"
+                    />
+                </div>
                 
                 {formError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg"><span>{formError}</span></p>}
                 
@@ -793,6 +944,68 @@ export default function LinksManager() {
                     placeholder="marketing, social, promo (separadas por vírgula)"
                     className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700">Campanha</label>
+                        <select
+                            value={settingsForm.campaignId}
+                            onChange={(e) => setSettingsForm({...settingsForm, campaignId: e.target.value})}
+                            className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                        >
+                            <option value="">Nenhuma</option>
+                            {campaigns.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700">Domínio</label>
+                        <select
+                            value={settingsForm.customDomain}
+                            onChange={(e) => setSettingsForm({...settingsForm, customDomain: e.target.value})}
+                            className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                        >
+                            <option value="">Padrão (valecraft.com)</option>
+                            {customDomains.filter(d => d.verified).map(d => (
+                                <option key={d.id} value={d.domain}>{d.domain}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Senha</label>
+                        <input
+                            type="text"
+                            value={settingsForm.password}
+                            onChange={(e) => setSettingsForm({...settingsForm, password: e.target.value})}
+                            placeholder="Proteger link"
+                            className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Limite de Cliques</label>
+                        <input
+                            type="number"
+                            value={settingsForm.maxClicks}
+                            onChange={(e) => setSettingsForm({...settingsForm, maxClicks: e.target.value})}
+                            placeholder="Ex: 100"
+                            className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Rotação de Links</label>
+                    <textarea
+                        value={settingsForm.rotationUrls}
+                        onChange={(e) => setSettingsForm({...settingsForm, rotationUrls: e.target.value})}
+                        placeholder="Uma URL por linha"
+                        className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3 min-h-[80px]"
+                    />
                 </div>
 
                 <div className="space-y-2">
@@ -868,6 +1081,61 @@ export default function LinksManager() {
                 <Button variant="secondary" className="flex-1" onClick={() => setIsEditModalOpen(false)}><span>Cancelar</span></Button>
                 <Button className="flex-1" onClick={handleSaveSettings} isLoading={isSubmitting}><span>Salvar Alterações</span></Button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {isQrModalOpen && qrLink && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-900">QR Code</h3>
+                <button onClick={() => setIsQrModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="flex justify-center mb-6 bg-white p-4 rounded-xl shadow-inner border border-gray-100">
+                <QRCodeCanvas 
+                    value={`${window.location.origin}/${qrLink.shortCode}`} 
+                    size={200}
+                    level={"H"}
+                    includeMargin={true}
+                />
+              </div>
+              
+              <p className="text-sm text-gray-500 mb-6 break-all">
+                {`${window.location.origin}/${qrLink.shortCode}`}
+              </p>
+
+              <Button 
+                className="w-full" 
+                onClick={() => {
+                    const canvas = document.querySelector('canvas');
+                    if (canvas) {
+                        const url = canvas.toDataURL('image/png');
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `qrcode-${qrLink.shortCode}.png`;
+                        a.click();
+                    }
+                }}
+              >
+                <QrCode className="w-4 h-4 mr-2" />
+                Baixar PNG
+              </Button>
             </motion.div>
           </motion.div>
         )}

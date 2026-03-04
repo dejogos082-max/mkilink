@@ -13,11 +13,12 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  LineChart,
-  Line,
+  PieChart,
+  Pie,
+  Cell,
   Legend
 } from "recharts";
-import { MousePointerClick, Link as LinkIcon, TrendingUp, Calendar, Filter, Download } from "lucide-react";
+import { MousePointerClick, Link as LinkIcon, TrendingUp, Calendar, Filter, Download, Globe, Smartphone, Monitor, Chrome } from "lucide-react";
 import { Button } from "../components/Button";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -35,11 +36,17 @@ interface ClickEvent {
     timestamp: number;
     userAgent?: string;
     referrer?: string;
+    browser?: string;
+    os?: string;
+    device?: string;
+    country?: string;
 }
 
 interface LinkStats {
     [shortCode: string]: ClickEvent[];
 }
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function Stats() {
   const { currentUser } = useAuth();
@@ -158,6 +165,26 @@ export default function Stats() {
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [filteredStats, startTs, endTs]);
 
+  // Advanced Analytics Aggregation
+  const allEvents = (Object.values(filteredStats) as ClickEvent[][]).flat();
+
+  const aggregateData = (key: keyof ClickEvent) => {
+    const counts: {[key: string]: number} = {};
+    allEvents.forEach(e => {
+        const value = (e[key] as string) || 'Unknown';
+        counts[value] = (counts[value] || 0) + 1;
+    });
+    return Object.entries(counts)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5); // Top 5
+  };
+
+  const browserData = aggregateData('browser');
+  const osData = aggregateData('os');
+  const deviceData = aggregateData('device');
+  const countryData = aggregateData('country');
+
   // Export Functions
   const exportCSV = () => {
     const headers = ["Data", "Cliques no Periodo", "Total Geral"];
@@ -258,6 +285,43 @@ export default function Stats() {
     }
     return null;
   };
+
+  const renderPieChart = (title: string, data: any[], icon: React.ReactNode) => (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5"
+    >
+      <div className="flex items-center gap-2 mb-6">
+        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+            {icon}
+        </div>
+        <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+      </div>
+      <div className="h-[250px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={80}
+              fill="#8884d8"
+              paddingAngle={5}
+              dataKey="value"
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </motion.div>
+  );
 
   if (loading) {
     return (
@@ -376,6 +440,14 @@ export default function Stats() {
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* Advanced Analytics Grid */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {renderPieChart("Navegadores", browserData, <Chrome className="w-5 h-5" />)}
+        {renderPieChart("Sistemas Op.", osData, <Monitor className="w-5 h-5" />)}
+        {renderPieChart("Dispositivos", deviceData, <Smartphone className="w-5 h-5" />)}
+        {renderPieChart("Países", countryData, <Globe className="w-5 h-5" />)}
       </div>
 
       {/* Charts Section */}

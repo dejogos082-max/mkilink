@@ -2,10 +2,11 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { db } from "../firebase";
-import { ref, runTransaction, push, set, get } from "firebase/database";
-import { Loader2, ExternalLink, AlertCircle } from "lucide-react";
+import { ref, runTransaction, push, set, get, update } from "firebase/database";
+import { Loader2, ExternalLink, AlertCircle, Lock, Eye, EyeOff } from "lucide-react";
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
+import { UAParser } from "ua-parser-js";
 import { detectAdBlock, AdBlockModal } from "../utils/antiAdblock";
 import { HCaptchaWrapper } from "../components/HCaptchaWrapper";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -91,6 +92,14 @@ export default function Redirect() {
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const captchaRef = useRef<HCaptcha>(null);
   
+  // Password Protection State
+  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [linkPassword, setLinkPassword] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
   // Error States
   const [validationError, setValidationError] = useState<string | null>(null);
   
@@ -228,31 +237,41 @@ export default function Redirect() {
       .then((snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
-
-          // Handle Simple Links (Instant Redirect)
-          if (data.type === 'simple') {
-            // Track click asynchronously
-            const linkRef = ref(db, `short_links/${shortId}`);
-            runTransaction(linkRef, (link) => {
-                if (link) {
-                    link.clicks = (link.clicks || 0) + 1;
-                }
-                return link;
-            }).catch(console.error);
-
-            const statsRef = ref(db, `click_stats/${shortId}`);
-            push(statsRef, {
-                timestamp: Date.now(),
-                userAgent: navigator.userAgent,
-                referrer: document.referrer || 'direct'
-            }).catch(console.error);
-
-            // Immediate redirect
-            window.location.href = data.originalUrl;
+          
+          // 1. Check Expiration (Time)
+          if (data.settings?.expiresAt && Date.now() > data.settings.expiresAt) {
+            setError("Este link expirou (tempo limite).");
             return;
           }
 
-          setOriginalUrl(data.originalUrl);
+          // 2. Check Expiration (Max Clicks)
+          if (data.settings?.maxClicks && data.clicks >= data.settings.maxClicks) {
+            setError("Este link expirou (limite de cliques).");
+            return;
+          }
+
+          // 3. Handle Link Rotation
+          let targetUrl = data.originalUrl;
+          if (data.settings?.rotationDestinations && Array.isArray(data.settings.rotationDestinations) && data.settings.rotationDestinations.length > 0) {
+            // Add original URL to the pool for rotation if desired, or just use the pool
+            // Assuming pool is additional destinations. Let's include original + pool.
+            const destinations = [data.originalUrl, ...data.settings.rotationDestinations];
+            const randomIndex = Math.floor(Math.random() * destinations.length);
+            targetUrl = destinations[randomIndex];
+          }
+
+          // 4. Check Password Protection
+          if (data.settings?.password) {
+            setIsPasswordProtected(true);
+            setLinkPassword(data.settings.password);
+            // Don't set originalUrl yet, wait for password verification
+            // But we need to store the targetUrl to set it later
+            // We can use a temp state or just setOriginalUrl but block rendering with isPasswordProtected check
+            // Better: use a ref or state for 'pendingUrl'
+            setOriginalUrl(targetUrl); // We set it, but we will block the view with `if (isPasswordProtected && !isPasswordVerified)`
+          } else {
+            setOriginalUrl(targetUrl);
+          }
           
           // Apply Settings
           if (data.settings) {
@@ -260,7 +279,6 @@ export default function Redirect() {
                 setCountdown(data.settings.duration);
                 setInitialCountdown(data.settings.duration);
             } else {
-                // Fallback safe default
                 setCountdown(15);
                 setInitialCountdown(15);
             }
@@ -273,21 +291,89 @@ export default function Redirect() {
             if (data.settings.headerTitle) {
                 setHeaderTitle(data.settings.headerTitle);
             }
-            // Check expiration
-            if (data.settings.expiresAt && Date.now() > data.settings.expiresAt) {
-                setError("This link has expired.");
-                setOriginalUrl(null);
-            }
           }
+
+          // Handle Simple Links (Instant Redirect) - ONLY if no password
+          if (data.type === 'simple' && !data.settings?.password) {
+            // Track click asynchronously
+            recordClick(shortId, data);
+            window.location.href = targetUrl;
+            return;
+          }
+
         } else {
-          setError("Link not found");
+          setError("Link não encontrado");
         }
       })
       .catch((err) => {
         console.error(err);
-        setError("An error occurred");
+        setError("Ocorreu um erro ao carregar o link");
       });
   }, [shortId]);
+
+  const recordClick = (id: string, linkData: any) => {
+    try {
+        // 1. Increment Clicks
+        const linkRef = ref(db, `short_links/${id}`);
+        runTransaction(linkRef, (link) => {
+            if (link) {
+                link.clicks = (link.clicks || 0) + 1;
+            }
+            return link;
+        }).catch(console.error);
+
+        // 2. Parse User Agent
+        const parser = new UAParser();
+        const result = parser.getResult();
+        
+        // 3. Record Detailed Stats
+        const statsRef = ref(db, `click_stats/${id}`);
+        push(statsRef, {
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent,
+            browser: result.browser.name || 'Unknown',
+            os: result.os.name || 'Unknown',
+            device: result.device.type || 'Desktop',
+            referrer: document.referrer || 'direct'
+        }).catch(console.error);
+
+        // 4. Record Earnings (CPM Logic)
+        // Basic bot protection: check if user agent is a bot (UAParser does this well)
+        // Also check localStorage for 'viewed_{id}' to prevent duplicate earnings in 24h
+        const isBot = (result.device.type as string) === 'bot' || /bot|crawl|spider|google|bing|yandex/i.test(navigator.userAgent);
+        const viewKey = `viewed_${id}`;
+        const lastView = localStorage.getItem(viewKey);
+        const isDuplicate = lastView && (Date.now() - parseInt(lastView) < 24 * 60 * 60 * 1000);
+
+        if (!isBot && !isDuplicate && linkData.userId) {
+            // Valid View for Earnings
+            localStorage.setItem(viewKey, Date.now().toString());
+            
+            // Record View
+            const viewsRef = ref(db, `views/${linkData.userId}`);
+            push(viewsRef, {
+                linkId: id,
+                timestamp: Date.now(),
+                cpm: 1.5, // Default CPM $1.50 (Should fetch from settings)
+                amount: 1.5 / 1000 // Amount per view
+            });
+
+            // Update User Earnings Balance
+            const earningsRef = ref(db, `earnings/${linkData.userId}`);
+            runTransaction(earningsRef, (current) => {
+                if (!current) return { balance: 1.5 / 1000, totalViews: 1 };
+                return {
+                    ...current,
+                    balance: (current.balance || 0) + (1.5 / 1000),
+                    totalViews: (current.totalViews || 0) + 1
+                };
+            });
+        }
+
+    } catch (e) {
+        console.error("Failed to record stats", e);
+    }
+  };
 
   useEffect(() => {
     if (!originalUrl) return;
@@ -342,6 +428,31 @@ export default function Redirect() {
     return () => window.removeEventListener("blur", handleBlur);
   }, [countdown, hasClickedAd]);
 
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === linkPassword) {
+      setIsPasswordVerified(true);
+      // Record click now that password is verified
+      if (shortId && originalUrl) {
+        // Fetch link data again to pass to recordClick? Or just pass minimal info?
+        // We need userId for earnings.
+        // Let's fetch it again or store it in state.
+        // For now, let's just assume we need to re-fetch or store it.
+        // Actually, I can store `linkData` in a state.
+        // But for simplicity, let's just call recordClick with a partial object if we have it, or re-fetch.
+        // Re-fetching is safer.
+        const linkRef = ref(db, `short_links/${shortId}`);
+        get(linkRef).then(snap => {
+            if (snap.exists()) {
+                recordClick(shortId, snap.val());
+            }
+        });
+      }
+    } else {
+      setPasswordError("Senha incorreta.");
+    }
+  };
+
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4 text-center">
@@ -354,6 +465,54 @@ export default function Redirect() {
           <a href="/" className="mt-8 inline-flex items-center justify-center px-6 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">
             Voltar para o início
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPasswordProtected && !isPasswordVerified) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl ring-1 ring-gray-900/5 p-8 text-center">
+          <div className="mx-auto w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
+            <Lock className="w-8 h-8 text-indigo-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Link Protegido</h2>
+          <p className="text-gray-500 mb-8">Este link é protegido por senha. Digite a senha para continuar.</p>
+          
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={passwordInput}
+                onChange={(e) => {
+                  setPasswordInput(e.target.value);
+                  setPasswordError("");
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                placeholder="Digite a senha..."
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            
+            {passwordError && (
+              <p className="text-sm text-red-600 font-medium">{passwordError}</p>
+            )}
+            
+            <button
+              type="submit"
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/30"
+            >
+              Acessar Link
+            </button>
+          </form>
         </div>
       </div>
     );

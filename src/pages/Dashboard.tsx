@@ -1,26 +1,40 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
-import { ref, set, onValue, query, orderByChild, equalTo } from "firebase/database";
-import { nanoid } from "nanoid";
-import { Input } from "../components/Input";
-import { Button } from "../components/Button";
+import { ref, query, orderByChild, equalTo, onValue } from "firebase/database";
+import { 
+  Link as LinkIcon, 
+  MousePointer2, 
+  TrendingUp, 
+  Activity,
+  Plus,
+  Zap,
+  ArrowRight,
+  DollarSign,
+  Eye
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Link } from "react-router-dom";
-import { Link as LinkIcon, ArrowRight, Zap, BarChart3, MousePointer2, Globe } from "lucide-react";
+import { Button } from "../components/Button";
+import { nanoid } from "nanoid";
+import { set } from "firebase/database";
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const [url, setUrl] = useState("");
-  const [customAlias, setCustomAlias] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState<string | null>(null);
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
+    totalLinks: 0,
     totalClicks: 0,
     activeLinks: 0,
-    totalLinks: 0
+    earnings: 0,
+    todayEarnings: 0,
+    cpm: 1.5, // Default CPM
+    totalViews: 0
   });
+  const [recentLinks, setRecentLinks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [quickLinkUrl, setQuickLinkUrl] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -31,220 +45,280 @@ export default function Dashboard() {
       equalTo(currentUser.uid)
     );
 
-    const unsubscribe = onValue(linksRef, (snapshot) => {
+    const earningsRef = ref(db, `earnings/${currentUser.uid}`);
+    const viewsRef = query(ref(db, `views/${currentUser.uid}`), orderByChild("timestamp"));
+
+    const unsubscribeLinks = onValue(linksRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const linkList = Object.values(data) as any[];
-        const totalClicks = linkList.reduce((acc, curr) => acc + (curr.clicks || 0), 0);
-        const activeLinks = linkList.filter(link => !link.settings?.expiresAt || link.settings.expiresAt > Date.now()).length;
-        
-        setStats({
-          totalClicks,
-          activeLinks,
-          totalLinks: linkList.length
-        });
+        const linksList = Object.values(data);
+        const totalLinks = linksList.length;
+        const totalClicks = linksList.reduce((acc: number, curr: any) => acc + (curr.clicks || 0), 0);
+        const activeLinks = linksList.length; // Simplified for now
+
+        // Get recent 5 links
+        const recent = Object.entries(data)
+            .map(([key, value]: [string, any]) => ({ id: key, ...value }))
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 5);
+
+        setStats(prev => ({ ...prev, totalLinks, totalClicks, activeLinks }));
+        setRecentLinks(recent);
       } else {
-        setStats({ totalClicks: 0, activeLinks: 0, totalLinks: 0 });
+        setStats(prev => ({ ...prev, totalLinks: 0, totalClicks: 0, activeLinks: 0 }));
+        setRecentLinks([]);
       }
+      setLoading(false);
     });
 
-    return () => unsubscribe();
+    const unsubscribeEarnings = onValue(earningsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            setStats(prev => ({ 
+                ...prev, 
+                earnings: data.balance || 0,
+                totalViews: data.totalViews || 0
+            }));
+        }
+    });
+
+    // Calculate today's earnings from views
+    // This might be heavy if many views, but for MVP it's okay.
+    // Better to aggregate on server side or store daily stats.
+    // For now, let's just fetch all views and filter client side (careful with scale).
+    // Optimization: Query views by timestamp startAt(today)
+    const startOfDay = new Date();
+    startOfDay.setHours(0,0,0,0);
+    
+    // We can't easily query by timestamp AND userId in simple firebase structure without composite index.
+    // Assuming `views/{userId}` contains all views for that user.
+    const unsubscribeViews = onValue(viewsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const views = Object.values(data) as any[];
+            const todayViews = views.filter(v => v.timestamp >= startOfDay.getTime());
+            const todayEarnings = todayViews.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+            setStats(prev => ({ ...prev, todayEarnings }));
+        }
+    });
+
+    return () => {
+        unsubscribeLinks();
+        unsubscribeEarnings();
+        unsubscribeViews();
+    };
   }, [currentUser]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleQuickCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!quickLinkUrl.trim() || !currentUser) return;
 
+    setIsCreating(true);
     try {
-      setError("");
-      setSuccess(null);
-      setLoading(true);
-
-      const shortCode = customAlias.trim() || nanoid(6);
-      const newLinkRef = ref(db, `short_links/${shortCode}`);
-      
-      await set(newLinkRef, {
-        originalUrl: url,
+      const shortCode = nanoid(6);
+      await set(ref(db, `short_links/${shortCode}`), {
+        originalUrl: quickLinkUrl,
         shortCode,
         userId: currentUser.uid,
         createdAt: Date.now(),
         clicks: 0,
+        type: 'simple', // Quick links are simple by default
         settings: {
             adCount: 3,
-            duration: 15,
-            expiresAt: null,
-            layout: 'default',
-            headerTitle: 'Valecraft'
+            duration: 15
         }
       });
-
-      setSuccess(shortCode);
-      setUrl("");
-      setCustomAlias("");
-    } catch (err: any) {
-      console.error(err);
-      setError("Falha ao encurtar link. " + err.message);
+      setQuickLinkUrl("");
+      // Show success feedback (could be a toast, but for now just clear input)
+      navigate('/links');
+    } catch (error) {
+      console.error("Error creating link:", error);
+    } finally {
+      setIsCreating(false);
     }
-    setLoading(false);
-  }
+  };
+
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12">
-      <div className="text-center space-y-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="inline-flex items-center justify-center p-3 bg-indigo-100 rounded-2xl text-indigo-600 mb-2"
-        >
-          <Zap className="w-8 h-8" />
-        </motion.div>
-        <motion.h1 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl"
-        >
-          <span>Encurte seus Links</span>
-        </motion.h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          <span>Crie links curtos e memoráveis em segundos. Rastreie cliques e gerencie suas URLs com facilidade.</span>
-        </p>
+    <div className="space-y-8 pb-12">
+      {/* Welcome Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Olá, {currentUser?.displayName?.split(' ')[0] || 'Usuário'} 👋
+          </h1>
+          <p className="text-gray-500 mt-1">Aqui está o resumo do seu desempenho hoje.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button onClick={() => navigate('/links')} variant="secondary">
+            Gerenciar Links
+          </Button>
+          <Button onClick={() => navigate('/plans')} className="bg-gradient-to-r from-indigo-600 to-purple-600 border-0">
+            <Zap className="w-4 h-4 mr-2" />
+            Fazer Upgrade
+          </Button>
+        </div>
       </div>
 
+      {/* Stats Grid */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-900/5"
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Input
-                label="URL de Destino"
-                type="url"
-                required
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://exemplo.com/url/muito/longa"
-              />
+        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+              <DollarSign className="w-6 h-6" />
             </div>
-            <div className="sm:col-span-2">
-               <Input
-                label="Alias Personalizado (Opcional)"
-                type="text"
-                value={customAlias}
-                onChange={(e) => setCustomAlias(e.target.value)}
-                placeholder="meu-link-personalizado"
-                pattern="[a-zA-Z0-9-_]+"
-                title="Apenas letras, números, hífens e sublinhados permitidos"
-              />
+            <div>
+              <p className="text-sm font-medium text-gray-500">Ganhos Totais</p>
+              <h3 className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : `$${stats.earnings.toFixed(2)}`}
+              </h3>
             </div>
           </div>
-          
-          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg"><span>{error}</span></p>}
-          
-          {success && (
-            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
-                  <LinkIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-emerald-900"><span>Link criado com sucesso!</span></p>
-                  <p className="text-xs text-emerald-700"><span>{window.location.origin}/{success}</span></p>
-                </div>
-              </div>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/${success}`)}
-              >
-                <span>Copiar</span>
-              </Button>
+        </motion.div>
+
+        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+              <TrendingUp className="w-6 h-6" />
             </div>
-          )}
-          
-          <Button type="submit" className="w-full" size="lg" isLoading={loading}>
-            <span>Encurtar URL</span>
-          </Button>
-        </form>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Ganhos Hoje</p>
+              <h3 className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : `$${stats.todayEarnings.toFixed(2)}`}
+              </h3>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+              <MousePointer2 className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total de Cliques</p>
+              <h3 className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : stats.totalClicks.toLocaleString()}
+              </h3>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div variants={item} className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+              <Eye className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Visualizações CPM</p>
+              <h3 className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : stats.totalViews.toLocaleString()}
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">CPM: ${stats.cpm.toFixed(2)}</p>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Quick Create */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
+          className="lg:col-span-2 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden"
         >
-          <div className="h-12 w-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-            <MousePointer2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium"><span>Total de Cliques</span></p>
-            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.totalClicks.toLocaleString()}</span></h3>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10"></div>
+          
+          <div className="relative z-10">
+            <h2 className="text-xl font-bold mb-2">Criar Link Rápido</h2>
+            <p className="text-indigo-100 mb-6 max-w-md">Cole sua URL longa abaixo para encurtá-la instantaneamente e começar a monitorar seus resultados.</p>
+            
+            <form onSubmit={handleQuickCreate} className="flex flex-col sm:flex-row gap-3">
+              <input 
+                type="url" 
+                placeholder="Cole seu link aqui..." 
+                className="flex-1 px-4 py-3 rounded-xl text-gray-900 border-0 focus:ring-2 focus:ring-white/50 outline-none shadow-lg"
+                value={quickLinkUrl}
+                onChange={(e) => setQuickLinkUrl(e.target.value)}
+                required
+              />
+              <button 
+                type="submit" 
+                disabled={isCreating}
+                className="px-6 py-3 bg-white text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors shadow-lg flex items-center justify-center gap-2"
+              >
+                {isCreating ? (
+                  <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5" />
+                    <span>Encurtar</span>
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         </motion.div>
 
+        {/* Recent Activity */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
+          className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 p-6"
         >
-          <div className="h-12 w-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-            <Globe className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-gray-900">Links Recentes</h3>
+            <Link to="/links" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
+              Ver todos <ArrowRight className="w-4 h-4 ml-1" />
+            </Link>
           </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium"><span>Links Ativos</span></p>
-            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.activeLinks}</span></h3>
+
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-center py-8 text-gray-400">Carregando...</div>
+            ) : recentLinks.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">Nenhum link recente</div>
+            ) : (
+              recentLinks.map((link) => (
+                <div key={link.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors group cursor-pointer" onClick={() => navigate('/links')}>
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+                    <LinkIcon className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900 truncate">/{link.shortCode}</p>
+                    <p className="text-xs text-gray-500 truncate">{link.originalUrl}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900">{link.clicks}</p>
+                    <p className="text-xs text-gray-500">cliques</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5 flex items-center gap-4"
-        >
-          <div className="h-12 w-12 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600">
-            <BarChart3 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium"><span>Total de Links</span></p>
-            <h3 className="text-2xl font-bold text-gray-900"><span>{stats.totalLinks}</span></h3>
-          </div>
-        </motion.div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-6">
-        <Link 
-          to="/links" 
-          className="group p-6 bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 hover:ring-indigo-500/30 transition-all"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-12 w-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
-              <LinkIcon className="w-6 h-6" />
-            </div>
-            <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-900"><span>Gerenciar Links</span></h3>
-          <p className="text-sm text-gray-500"><span>Visualize, edite e acompanhe o desempenho de todos os seus links.</span></p>
-        </Link>
-
-        <Link 
-          to="/stats" 
-          className="group p-6 bg-white rounded-2xl shadow-sm ring-1 ring-gray-900/5 hover:ring-indigo-500/30 transition-all"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-12 w-12 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600 group-hover:scale-110 transition-transform">
-              <Zap className="w-6 h-6" />
-            </div>
-            <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-violet-500 group-hover:translate-x-1 transition-all" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-900"><span>Ver Estatísticas</span></h3>
-          <p className="text-sm text-gray-500"><span>Análises detalhadas de cliques, origens e dispositivos.</span></p>
-        </Link>
       </div>
     </div>
   );
