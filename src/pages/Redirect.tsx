@@ -311,7 +311,7 @@ export default function Redirect() {
       });
   }, [shortId]);
 
-  const recordClick = (id: string, linkData: any) => {
+  const recordClick = async (id: string, linkData: any) => {
     try {
         // 1. Increment Clicks
         const linkRef = ref(db, `short_links/${id}`);
@@ -326,6 +326,28 @@ export default function Redirect() {
         const parser = new UAParser();
         const result = parser.getResult();
         
+        // Improved Device Detection
+        let deviceType = result.device.type;
+        if (!deviceType) {
+            if (/mobile|tablet|ipad|iphone|android/i.test(navigator.userAgent)) {
+                deviceType = 'Mobile';
+            } else {
+                deviceType = 'Desktop';
+            }
+        }
+
+        // Fetch Country
+        let country = 'Unknown';
+        try {
+            const geoRes = await fetch('/api/geo');
+            if (geoRes.ok) {
+                const geoData = await geoRes.json();
+                if (geoData.country) country = geoData.country;
+            }
+        } catch (e) {
+            console.error("Failed to fetch geo", e);
+        }
+        
         // 3. Record Detailed Stats
         const statsRef = ref(db, `click_stats/${id}`);
         push(statsRef, {
@@ -333,7 +355,8 @@ export default function Redirect() {
             userAgent: navigator.userAgent,
             browser: result.browser.name || 'Unknown',
             os: result.os.name || 'Unknown',
-            device: result.device.type || 'Desktop',
+            device: deviceType,
+            country: country,
             referrer: document.referrer || 'direct'
         }).catch(console.error);
 

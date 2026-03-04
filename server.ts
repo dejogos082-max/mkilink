@@ -78,6 +78,38 @@ async function startServer() {
     res.json({ ip: (req as any).clientIp || "127.0.0.1" });
   });
 
+  // GeoIP Endpoint
+  app.get("/api/geo", async (req, res) => {
+    try {
+      let ip = (req as any).clientIp || req.ip;
+      
+      // Handle localhost/private IPs for testing
+      if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+          // Try to get public IP if local
+          try {
+            const publicIpRes = await axios.get('https://api.ipify.org?format=json');
+            ip = publicIpRes.data.ip;
+          } catch (e) {
+             return res.json({ country: 'Localhost', countryCode: 'LO' });
+          }
+      }
+
+      const response = await axios.get(`http://ip-api.com/json/${ip}`);
+      if (response.data && response.data.status === 'success') {
+          res.json({ 
+              country: response.data.country, 
+              countryCode: response.data.countryCode,
+              city: response.data.city
+          });
+      } else {
+          res.json({ country: 'Unknown', countryCode: 'UN' });
+      }
+    } catch (error) {
+      console.error("GeoIP Error:", error);
+      res.json({ country: 'Unknown', countryCode: 'UN' });
+    }
+  });
+
   // Helper to get R2 Config from Firebase
   async function getR2Config() {
     try {

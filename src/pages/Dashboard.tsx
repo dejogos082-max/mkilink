@@ -34,7 +34,9 @@ export default function Dashboard() {
   const [recentLinks, setRecentLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickLinkUrl, setQuickLinkUrl] = useState("");
+  const [simpleLinkUrl, setSimpleLinkUrl] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingSimple, setIsCreatingSimple] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -109,32 +111,46 @@ export default function Dashboard() {
     };
   }, [currentUser]);
 
-  const handleQuickCreate = async (e: React.FormEvent) => {
+  const handleQuickCreate = async (e: React.FormEvent, type: 'standard' | 'simple' = 'standard') => {
     e.preventDefault();
-    if (!quickLinkUrl.trim() || !currentUser) return;
+    const url = type === 'standard' ? quickLinkUrl : simpleLinkUrl;
+    
+    if (!url.trim() || !currentUser) return;
 
-    setIsCreating(true);
+    if (type === 'standard') setIsCreating(true);
+    else setIsCreatingSimple(true);
+
     try {
       const shortCode = nanoid(6);
-      await set(ref(db, `short_links/${shortCode}`), {
-        originalUrl: quickLinkUrl,
+      const linkData: any = {
+        originalUrl: url,
         shortCode,
         userId: currentUser.uid,
         createdAt: Date.now(),
         clicks: 0,
-        type: 'simple', // Quick links are simple by default
+        type: type,
         settings: {
             adCount: 3,
             duration: 15
         }
-      });
-      setQuickLinkUrl("");
+      };
+
+      if (type === 'simple') {
+          linkData.settings = { rotationDestinations: null };
+      }
+
+      await set(ref(db, `short_links/${shortCode}`), linkData);
+      
+      if (type === 'standard') setQuickLinkUrl("");
+      else setSimpleLinkUrl("");
+
       // Show success feedback (could be a toast, but for now just clear input)
-      navigate('/links');
+      navigate(type === 'simple' ? '/simple-links' : '/links');
     } catch (error) {
       console.error("Error creating link:", error);
     } finally {
-      setIsCreating(false);
+      if (type === 'standard') setIsCreating(false);
+      else setIsCreatingSimple(false);
     }
   };
 
@@ -245,39 +261,102 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-2 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden"
+          className="lg:col-span-2 space-y-6"
         >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10"></div>
-          
-          <div className="relative z-10">
-            <h2 className="text-xl font-bold mb-2">Criar Link Rápido</h2>
-            <p className="text-indigo-100 mb-6 max-w-md">Cole sua URL longa abaixo para encurtá-la instantaneamente e começar a monitorar seus resultados.</p>
+          {/* Standard Link Creator */}
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10"></div>
             
-            <form onSubmit={handleQuickCreate} className="flex flex-col sm:flex-row gap-3">
-              <input 
-                type="url" 
-                placeholder="Cole seu link aqui..." 
-                className="flex-1 px-4 py-3 rounded-xl text-gray-900 border-0 focus:ring-2 focus:ring-white/50 outline-none shadow-lg"
-                value={quickLinkUrl}
-                onChange={(e) => setQuickLinkUrl(e.target.value)}
-                required
-              />
-              <button 
-                type="submit" 
-                disabled={isCreating}
-                className="px-6 py-3 bg-white text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors shadow-lg flex items-center justify-center gap-2"
-              >
-                {isCreating ? (
-                  <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    <Zap className="w-5 h-5" />
-                    <span>Encurtar</span>
-                  </>
-                )}
-              </button>
-            </form>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Zap className="w-5 h-5 text-yellow-300" />
+                </div>
+                <h2 className="text-xl font-bold">Criar Link Monetizado</h2>
+              </div>
+              <p className="text-indigo-100 mb-6 max-w-md">Cole sua URL longa para criar um link protegido com anúncios e começar a ganhar.</p>
+              
+              <form onSubmit={(e) => handleQuickCreate(e, 'standard')} className="flex flex-col sm:flex-row gap-3">
+                <input 
+                  type="url" 
+                  placeholder="https://seu-link-longo.com/exemplo" 
+                  className="flex-1 px-4 py-3 rounded-xl text-gray-900 bg-white border-2 border-transparent focus:border-yellow-400 focus:ring-0 outline-none shadow-lg placeholder-gray-400"
+                  value={quickLinkUrl}
+                  onChange={(e) => setQuickLinkUrl(e.target.value)}
+                  required
+                />
+                <button 
+                  type="submit" 
+                  disabled={isCreating}
+                  className="px-6 py-3 bg-yellow-400 text-indigo-900 font-bold rounded-xl hover:bg-yellow-300 transition-colors shadow-lg flex items-center justify-center gap-2"
+                >
+                  {isCreating ? (
+                    <div className="w-5 h-5 border-2 border-indigo-900 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Zap className="w-5 h-5" />
+                      <span>Encurtar</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Simple Link Creator */}
+          <div className="bg-gradient-to-br from-purple-700 to-indigo-800 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
+            {/* Background Effects */}
+            <div className="absolute top-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -ml-16 -mt-16"></div>
+            <div className="absolute bottom-0 right-0 w-48 h-48 bg-black/20 rounded-full blur-2xl -mr-10 -mb-10"></div>
+
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      rotate: [0, 10, -10, 0],
+                      filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"]
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                  </motion.div>
+                </div>
+                <h2 className="text-xl font-bold">Criar Link Simples (Direto)</h2>
+              </div>
+              <p className="text-purple-100 mb-6 max-w-md">Redirecionamento instantâneo sem anúncios. Ideal para uso interno ou compartilhamento rápido.</p>
+              
+              <form onSubmit={(e) => handleQuickCreate(e, 'simple')} className="flex flex-col sm:flex-row gap-3">
+                <input 
+                  type="url" 
+                  placeholder="https://seu-link-longo.com/exemplo" 
+                  className="flex-1 px-4 py-3 rounded-xl text-gray-900 bg-white border-2 border-transparent focus:border-yellow-400 focus:ring-0 outline-none shadow-lg placeholder-gray-400"
+                  value={simpleLinkUrl}
+                  onChange={(e) => setSimpleLinkUrl(e.target.value)}
+                  required
+                />
+                <button 
+                  type="submit" 
+                  disabled={isCreatingSimple}
+                  className="px-6 py-3 bg-yellow-400 text-indigo-900 font-bold rounded-xl hover:bg-yellow-300 transition-colors shadow-lg flex items-center justify-center gap-2"
+                >
+                  {isCreatingSimple ? (
+                    <div className="w-5 h-5 border-2 border-indigo-900 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      <span>Criar</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
           </div>
         </motion.div>
 
