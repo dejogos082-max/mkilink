@@ -25,7 +25,7 @@ export default function Login() {
   const [mfaLoading, setMfaLoading] = useState(false);
   const [tempUser, setTempUser] = useState<any>(null);
 
-  async function handleSocialLogin(providerName: 'google' | 'github' | 'microsoft') {
+  async function handleSocialLogin(providerName: 'google' | 'github') {
     try {
       setError("");
       setLoading(true);
@@ -37,9 +37,6 @@ export default function Login() {
           break;
         case 'github':
           provider = new GithubAuthProvider();
-          break;
-        case 'microsoft':
-          provider = new OAuthProvider('microsoft.com');
           break;
       }
 
@@ -202,11 +199,11 @@ export default function Login() {
             )}
 
             <div className="mt-8 space-y-4">
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="w-full flex items-center justify-center gap-3 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border-gray-300 transition-all shadow-sm"
+                  className="w-full flex items-center justify-center py-2.5 bg-white hover:bg-gray-50 text-gray-700 border-gray-300 transition-all shadow-sm"
                   onClick={() => handleSocialLogin('google')}
                   isLoading={loading}
                 >
@@ -228,37 +225,17 @@ export default function Login() {
                       fill="#EA4335"
                     />
                   </svg>
-                  <span className="font-medium">Continuar com Google</span>
                 </Button>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#24292F] hover:bg-[#24292F]/90 text-white border-transparent transition-all shadow-sm"
-                    onClick={() => handleSocialLogin('github')}
-                    isLoading={loading}
-                  >
-                    <Github className="w-5 h-5" />
-                    <span className="font-medium">GitHub</span>
-                  </Button>
-
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white border-transparent transition-all shadow-sm"
-                    onClick={() => handleSocialLogin('microsoft')}
-                    isLoading={loading}
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 23 23">
-                      <path fill="#f35325" d="M1 1h10v10H1z"/>
-                      <path fill="#81bc06" d="M12 1h10v10H12z"/>
-                      <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-                      <path fill="#ffba08" d="M12 12h10v10H12z"/>
-                    </svg>
-                    <span className="font-medium">Microsoft</span>
-                  </Button>
-                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full flex items-center justify-center py-2.5 bg-[#24292F] hover:bg-[#24292F]/90 text-white border-transparent transition-all shadow-sm"
+                  onClick={() => handleSocialLogin('github')}
+                  isLoading={loading}
+                >
+                  <Github className="w-5 h-5" />
+                </Button>
               </div>
 
               <div className="relative">
