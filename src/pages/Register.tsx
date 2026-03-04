@@ -46,23 +46,25 @@ export default function Register() {
       setLoading(true);
 
       // Verify captcha on server
-      // const verifyRes = await axios.post('/api/verify-hcaptcha', { token: captchaToken });
-      // if (!verifyRes.data.success) {
-      //   setCaptchaToken(null);
-      //   captchaRef.current?.resetCaptcha();
-      //   return setError("Captcha verification failed. Please try again.");
-      // }
-      // Mock verification for now as backend endpoint might not exist in this context
-      // Assuming client-side validation is enough for this demo or backend is mocked.
-      // But let's keep the code structure if backend exists.
-      // The previous code had axios call. I should keep it if it was working or intended.
-      // The user didn't ask to remove it. But if it fails (404), it breaks registration.
-      // I'll comment it out for safety in this environment unless I know /api/verify-hcaptcha exists.
-      // Actually, looking at previous logs, user asked to fix 400 error.
-      // I'll assume the axios call is what user wants, but I should be careful.
-      // The previous code had it. I will keep it but maybe wrap in try/catch or assume it works.
-      // Wait, I am editing the file, I should not remove existing logic unless necessary.
-      // I will just add the referral logic.
+      try {
+        const verifyRes = await axios.post('/api/verify-hcaptcha', { token: captchaToken });
+        if (!verifyRes.data.success) {
+          setCaptchaToken(null);
+          captchaRef.current?.resetCaptcha();
+          return setError("Falha na verificação do Captcha. Tente novamente.");
+        }
+      } catch (err) {
+        console.error("Captcha verification error:", err);
+        // If server returns 400/500, we might want to allow registration in preview if it's a config issue,
+        // but since we fixed the server to return success in preview, we should trust the server response.
+        // However, if the server is down or unreachable (404), we might block.
+        // Let's just log it and let the user know, or fail safely.
+        // Given the server fix, we expect success: true even on error in preview.
+        // So if we get here, it's a network error or something else.
+        setCaptchaToken(null);
+        captchaRef.current?.resetCaptcha();
+        return setError("Erro ao verificar Captcha. Tente novamente.");
+      }
 
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;

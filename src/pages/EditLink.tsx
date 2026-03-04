@@ -59,7 +59,6 @@ export default function EditLink() {
     tags: "",
     password: "",
     maxClicks: "",
-    rotationUrls: "",
     campaignId: "",
     customDomain: ""
   });
@@ -91,7 +90,6 @@ export default function EditLink() {
                     tags: link.tags?.join(', ') || "",
                     password: link.settings?.password || "",
                     maxClicks: link.settings?.maxClicks ? String(link.settings.maxClicks) : "",
-                    rotationUrls: link.settings?.rotationDestinations?.join('\n') || "",
                     campaignId: link.campaignId || "",
                     customDomain: link.customDomain || ""
                 });
@@ -152,7 +150,6 @@ export default function EditLink() {
     if (settingsForm.expiresIn === "30d") expiresAt = now + 30 * 24 * 3600 * 1000;
 
     const tagList = settingsForm.tags.split(',').map(t => t.trim()).filter(t => t);
-    const rotationList = settingsForm.rotationUrls.split('\n').map(u => u.trim()).filter(u => u);
 
     try {
         await update(ref(db, `short_links/${currentLink.shortCode}`), {
@@ -168,8 +165,7 @@ export default function EditLink() {
             layout: settingsForm.layout,
             headerTitle: settingsForm.headerTitle,
             password: settingsForm.password || null,
-            maxClicks: settingsForm.maxClicks ? parseInt(settingsForm.maxClicks) : null,
-            rotationDestinations: rotationList.length > 0 ? rotationList : null
+            maxClicks: settingsForm.maxClicks ? parseInt(settingsForm.maxClicks) : null
         });
         showToast("Configurações salvas com sucesso!");
         setTimeout(() => navigate('/links'), 1000);
@@ -288,16 +284,6 @@ export default function EditLink() {
                         className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
                     />
                 </div>
-            </div>
-
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Rotação de Links</label>
-                <textarea
-                    value={settingsForm.rotationUrls}
-                    onChange={(e) => setSettingsForm({...settingsForm, rotationUrls: e.target.value})}
-                    placeholder="Uma URL por linha"
-                    className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3 min-h-[80px]"
-                />
             </div>
 
             <div className="space-y-2">

@@ -78,7 +78,6 @@ export default function LinksManager() {
   // New Form Fields
   const [password, setPassword] = useState("");
   const [maxClicks, setMaxClicks] = useState("");
-  const [rotationUrls, setRotationUrls] = useState("");
   const [selectedCampaign, setSelectedCampaign] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
 
@@ -188,7 +187,6 @@ export default function LinksManager() {
       const newLinkRef = ref(db, `short_links/${shortCode}`);
       
       const tagList = tags.split(',').map(t => t.trim()).filter(t => t);
-      const rotationList = rotationUrls.split('\n').map(u => u.trim()).filter(u => u);
 
       await set(newLinkRef, {
         originalUrl: url,
@@ -204,8 +202,7 @@ export default function LinksManager() {
             duration: 15,
             expiresAt: null,
             password: password || null,
-            maxClicks: maxClicks ? parseInt(maxClicks) : null,
-            rotationDestinations: rotationList.length > 0 ? rotationList : null
+            maxClicks: maxClicks ? parseInt(maxClicks) : null
         }
       });
 
@@ -225,7 +222,6 @@ export default function LinksManager() {
       setTags("");
       setPassword("");
       setMaxClicks("");
-      setRotationUrls("");
       setSelectedCampaign("");
       setSelectedDomain("");
       setIsCreateModalOpen(false);
@@ -812,16 +808,6 @@ export default function LinksManager() {
                         value={maxClicks}
                         onChange={(e) => setMaxClicks(e.target.value)}
                         placeholder="Ex: 100"
-                    />
-                </div>
-
-                <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Rotação de Links (Opcional)</label>
-                    <textarea
-                        value={rotationUrls}
-                        onChange={(e) => setRotationUrls(e.target.value)}
-                        placeholder="Uma URL por linha. O sistema irá alternar aleatoriamente entre a URL original e estas."
-                        className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3 min-h-[80px]"
                     />
                 </div>
                 

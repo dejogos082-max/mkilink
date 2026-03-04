@@ -42,6 +42,7 @@ export default function SimpleLinksManager() {
   
   // Form States
   const [url, setUrl] = useState("");
+  const [rotationUrls, setRotationUrls] = useState("");
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -101,16 +102,22 @@ export default function SimpleLinksManager() {
       const shortCode = nanoid(6); // Always random for simple links per request? "com nome aleatório"
       const newLinkRef = ref(db, `short_links/${shortCode}`);
       
+      const rotationList = rotationUrls.split('\n').map(u => u.trim()).filter(u => u);
+
       await set(newLinkRef, {
         originalUrl: url,
         shortCode,
         userId: currentUser.uid,
         createdAt: Date.now(),
         clicks: 0,
-        type: 'simple' // Mark as simple link
+        type: 'simple', // Mark as simple link
+        settings: {
+            rotationDestinations: rotationList.length > 0 ? rotationList : null
+        }
       });
 
       setUrl("");
+      setRotationUrls("");
       setIsCreateModalOpen(false);
       showToast("Link curto criado com sucesso!");
     } catch (err: any) {
@@ -367,6 +374,16 @@ export default function SimpleLinksManager() {
                   placeholder="https://exemplo.com"
                 />
                 
+                <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Rotação de Links (Opcional)</label>
+                    <textarea
+                        value={rotationUrls}
+                        onChange={(e) => setRotationUrls(e.target.value)}
+                        placeholder="Uma URL por linha. O sistema irá alternar aleatoriamente entre a URL original e estas."
+                        className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3 min-h-[80px]"
+                    />
+                </div>
+
                 {formError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{formError}</p>}
                 
                 <div className="pt-4 flex gap-3">
