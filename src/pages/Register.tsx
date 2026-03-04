@@ -25,8 +25,13 @@ export default function Register() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return setError("Por favor, insira um endereço de email válido.");
+    }
+
     if (password !== confirmPassword) {
-      return setError("Passwords do not match");
+      return setError("As senhas não coincidem.");
     }
 
     if (!captchaToken) {

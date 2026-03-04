@@ -103,9 +103,13 @@ export default function Plans() {
           <motion.div
             key={plan.name}
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className={`relative flex flex-col bg-white rounded-2xl shadow-xl ring-1 ring-gray-900/5 overflow-hidden ${plan.popular ? 'ring-2 ring-indigo-600 scale-105 z-10' : ''}`}
+            animate={plan.popular ? { opacity: 1, y: 0, scale: [1, 1.02, 1] } : { opacity: 1, y: 0 }}
+            transition={plan.popular ? { 
+              opacity: { delay: index * 0.1 },
+              y: { delay: index * 0.1 },
+              scale: { duration: 2, repeat: Infinity, ease: "easeInOut" } 
+            } : { delay: index * 0.1 }}
+            className={`relative flex flex-col bg-white rounded-2xl shadow-xl ring-1 ring-gray-900/5 overflow-hidden ${plan.popular ? 'ring-2 ring-indigo-600 z-10' : ''}`}
           >
             {plan.popular && (
               <div className="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl">
