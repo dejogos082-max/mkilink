@@ -71,7 +71,12 @@ export default function Login() {
       await completeLogin(user);
     } catch (err: any) {
       console.error(`${providerName} Login Error:`, err);
-      setError(`Falha ao entrar com ${providerName}. Tente novamente.`);
+      if (err.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        setError(`Erro de Domínio: O domínio "${currentDomain}" não está autorizado. Adicione-o no console do Firebase > Authentication > Settings > Authorized Domains.`);
+      } else {
+        setError(`Falha ao entrar com ${providerName}. Tente novamente. Erro: ${err.message}`);
+      }
       setLoading(false);
     }
   }

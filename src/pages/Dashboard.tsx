@@ -71,7 +71,7 @@ export default function Dashboard() {
       if (data) {
         const linksList = Object.values(data);
         linksData.count = linksList.length;
-        linksData.clicks = linksList.reduce((acc: number, curr: any) => acc + (curr.clicks || 0), 0);
+        linksData.clicks = linksList.reduce<number>((acc, curr: any) => acc + (curr.clicks || 0), 0);
 
         // Get recent 5 links
         const recent = Object.entries(data)

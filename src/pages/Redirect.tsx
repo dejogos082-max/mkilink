@@ -330,9 +330,9 @@ export default function Redirect() {
         let deviceType = result.device.type;
         if (!deviceType) {
             if (/mobile|tablet|ipad|iphone|android/i.test(navigator.userAgent)) {
-                deviceType = 'Mobile';
+                deviceType = 'mobile';
             } else {
-                deviceType = 'Desktop';
+                deviceType = 'desktop';
             }
         }
 

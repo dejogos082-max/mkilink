@@ -82,7 +82,11 @@ export default function Register() {
       navigate("/dashboard");
     } catch (err: any) {
       console.error(err);
-      setError("Failed to create an account. " + err.message);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Este domínio não está autorizado no Firebase. Adicione-o no console do Firebase > Authentication > Settings > Authorized Domains.");
+      } else {
+        setError("Failed to create an account. " + err.message);
+      }
       setCaptchaToken(null);
       captchaRef.current?.resetCaptcha();
     }
@@ -141,7 +145,7 @@ export default function Register() {
 
           <div className="flex justify-center">
             <HCaptcha
-              sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"}
+              sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "10000000-ffff-ffff-ffff-000000000001"}
               onVerify={(token) => setCaptchaToken(token)}
               onExpire={() => setCaptchaToken(null)}
               ref={captchaRef}

@@ -19,6 +19,8 @@ import LinkBioManager from "./pages/LinkBioManager";
 import BioPage from "./pages/BioPage";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import Profile from "./pages/Profile";
+import PlanCheckout from "./pages/PlanCheckout";
 
 import Store from "./pages/Store";
 import ProductDetails from "./pages/ProductDetails";
@@ -175,11 +177,41 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/profile"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Profile />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/checkout/plan/:planId"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <PlanCheckout />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
                   path="/plans"
                   element={
                     <PrivateRoute>
                       <Layout>
                         <Plans />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/checkout/plan/:planId"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <PlanCheckout />
                       </Layout>
                     </PrivateRoute>
                   }

@@ -12,7 +12,8 @@ import {
   ShoppingBag,
   CreditCard,
   Folder,
-  Users
+  Users,
+  User
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -109,6 +110,15 @@ const menuItems = [
     color: "bg-gray-500",
     textColor: "text-gray-500",
     bgLight: "bg-gray-50"
+  },
+  {
+    title: "Perfil",
+    description: "Gerencie suas informações pessoais e preferências.",
+    icon: User,
+    path: "/profile",
+    color: "bg-teal-500",
+    textColor: "text-teal-500",
+    bgLight: "bg-teal-50"
   }
 ];
 

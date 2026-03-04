@@ -1,11 +1,15 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { Check, X, Zap, Star, Crown, Building, TrendingUp, DollarSign, BarChart3 } from 'lucide-react';
 import { Button } from '../components/Button';
 
 export default function Plans() {
+  const navigate = useNavigate();
+
   const plans = [
     {
+      id: "free",
       name: "Plano Free",
       description: "Para usuários que querem apenas encurtar links e testar a plataforma.",
       price: "Grátis",
@@ -32,6 +36,7 @@ export default function Plans() {
       color: "bg-gray-100 text-gray-600"
     },
     {
+      id: "premium",
       name: "Workspace Premium",
       description: "Para afiliados, criadores e marketing digital.",
       price: "R$29",
@@ -58,6 +63,7 @@ export default function Plans() {
       color: "bg-indigo-100 text-indigo-600"
     },
     {
+      id: "business",
       name: "Workspace Empresarial",
       description: "Pensado para agências, empresas e equipes de marketing.",
       price: "R$99",
@@ -206,6 +212,7 @@ export default function Plans() {
                 className="w-full" 
                 variant={plan.buttonVariant as any}
                 size="lg"
+                onClick={() => navigate(`/checkout/plan/${plan.id}`)}
               >
                 {plan.buttonText}
               </Button>
