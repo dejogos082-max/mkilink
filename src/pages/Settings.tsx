@@ -555,24 +555,24 @@ export default function Settings() {
         <p className="text-gray-500">Personalize sua experiência no MKI Links PRO</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2">
         {sections.map((section, index) => (
           <motion.div
             key={section.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-3xl shadow-sm ring-1 ring-gray-900/5 overflow-hidden flex flex-col"
+            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col"
           >
-            <div className="p-6 border-b border-gray-50 flex items-center gap-4">
-              <div className={`p-3 rounded-2xl ${section.bg} ${section.color}`}>
+            <div className="flex items-center gap-4 mb-6">
+              <div className={`p-3 rounded-xl ${section.bg} ${section.color}`}>
                 <section.icon className="w-6 h-6" />
               </div>
               <h2 className="text-lg font-bold text-gray-900 leading-tight">
                 {section.title}
               </h2>
             </div>
-            <div className="p-6 flex-grow">
+            <div className="flex-grow">
               {section.content}
             </div>
           </motion.div>

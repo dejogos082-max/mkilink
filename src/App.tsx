@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { GlobalLoader } from "./components/GlobalLoader";
 import Login from "./pages/Login";
+import Auth0Login from "./pages/Auth0Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Redirect from "./pages/Redirect";
@@ -56,6 +57,7 @@ export default function App() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/login" element={<Layout><Login /></Layout>} />
+                <Route path="/auth0-login" element={<Layout><Auth0Login /></Layout>} />
                 <Route path="/register" element={<Layout><Register /></Layout>} />
                 
                 {/* Public Bio Page - No Layout, standalone */}

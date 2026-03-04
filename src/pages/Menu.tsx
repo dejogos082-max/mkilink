@@ -93,7 +93,7 @@ const menuItems = [
     bgLight: "bg-amber-50"
   },
   {
-    title: "Planos",
+    title: "Workspace Planos",
     description: "Escolha o melhor plano para suas necessidades.",
     icon: CreditCard,
     path: "/plans",

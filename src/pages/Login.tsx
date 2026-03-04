@@ -11,6 +11,8 @@ import axios from 'axios';
 import { Github } from "lucide-react";
 import { loginGithub } from "../lib/auth";
 
+import { SecurityBadges } from "../components/SecurityBadges";
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -173,7 +175,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center p-4">
+    <div className="flex flex-col min-h-[80vh] items-center justify-center p-4">
       <AnimatePresence mode="wait">
         {!mfaStep ? (
           <motion.div
@@ -350,6 +352,7 @@ export default function Login() {
           </motion.div>
         )}
       </AnimatePresence>
+      <SecurityBadges />
     </div>
   );
 }

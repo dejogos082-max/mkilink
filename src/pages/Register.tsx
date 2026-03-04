@@ -10,6 +10,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 
 import { useSettings } from "../contexts/SettingsContext";
+import { SecurityBadges } from "../components/SecurityBadges";
 
 export default function Register() {
   const { settings } = useSettings();
@@ -89,7 +90,7 @@ export default function Register() {
   }
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center">
+    <div className="flex flex-col min-h-[80vh] items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -163,6 +164,7 @@ export default function Register() {
           </p>
         </form>
       </motion.div>
+      <SecurityBadges />
     </div>
   );
 }
