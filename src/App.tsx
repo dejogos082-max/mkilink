@@ -24,6 +24,8 @@ import ProductDetails from "./pages/ProductDetails";
 import CheckoutPage from "./pages/Checkout";
 import AcceptInvite from "./pages/AcceptInvite";
 
+import Plans from "./pages/Plans";
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth()!;
   
@@ -133,6 +135,16 @@ export default function App() {
                     <PrivateRoute>
                       <Layout>
                         <Settings />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/plans"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Plans />
                       </Layout>
                     </PrivateRoute>
                   }

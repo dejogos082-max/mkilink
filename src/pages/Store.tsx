@@ -146,17 +146,17 @@ export default function Store() {
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-gray-50/50">
       {/* Header */}
-      <div className="bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 sticky top-0 z-30">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
                 <ShoppingBag className="w-8 h-8 text-indigo-600" />
                 Loja Virtual
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">Produtos digitais premium para impulsionar seus resultados</p>
+              <p className="text-gray-500 mt-1">Produtos digitais premium para impulsionar seus resultados</p>
             </div>
             
             {isAdmin && (
@@ -175,7 +175,7 @@ export default function Store() {
                 placeholder="Buscar produtos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
               />
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
@@ -186,7 +186,7 @@ export default function Store() {
                   className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
                     selectedCategory === category
                       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                      : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-800'
+                      : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                   }`}
                 >
                   {category}
@@ -205,11 +205,11 @@ export default function Store() {
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <ShoppingBag className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Nenhum produto encontrado</h3>
-            <p className="text-gray-500 dark:text-gray-400">Tente ajustar seus filtros ou volte mais tarde.</p>
+            <h3 className="text-lg font-medium text-gray-900">Nenhum produto encontrado</h3>
+            <p className="text-gray-500">Tente ajustar seus filtros ou volte mais tarde.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -220,9 +220,9 @@ export default function Store() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 whileHover={{ y: -5 }}
-                className="group bg-white dark:bg-zinc-900 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-zinc-800 overflow-hidden flex flex-col"
+                className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col"
               >
-                <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-zinc-800">
+                <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                   <img
                     src={product.imageUrl || 'https://via.placeholder.com/400'}
                     alt={product.name}
@@ -237,13 +237,13 @@ export default function Store() {
                     <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => { e.stopPropagation(); openModal(product); }}
-                        className="p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-lg text-gray-700 dark:text-gray-300 hover:text-indigo-600 shadow-sm"
+                        className="p-2 bg-white/90 backdrop-blur-sm rounded-lg text-gray-700 hover:text-indigo-600 shadow-sm"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.id); }}
-                        className="p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-lg text-gray-700 dark:text-gray-300 hover:text-red-600 shadow-sm"
+                        className="p-2 bg-white/90 backdrop-blur-sm rounded-lg text-gray-700 hover:text-red-600 shadow-sm"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -253,28 +253,28 @@ export default function Store() {
 
                 <div className="p-5 flex-1 flex flex-col">
                   <div className="flex items-start justify-between mb-2">
-                    <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-1 rounded-md">
+                    <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
                       {product.category}
                     </span>
                   </div>
                   
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 line-clamp-1" title={product.name}>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1" title={product.name}>
                     {product.name}
                   </h3>
                   
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-2 flex-1">
+                  <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-1">
                     {product.description}
                   </p>
                   
-                  <div className="mt-auto pt-4 border-t border-gray-100 dark:border-zinc-800 flex items-end justify-between">
+                  <div className="mt-auto pt-4 border-t border-gray-100 flex items-end justify-between">
                     <div>
                       {product.promotionalPrice && product.promotionalPrice < product.price ? (
                         <div className="flex flex-col">
                           <span className="text-xs text-gray-400 line-through">R$ {product.price.toFixed(2)}</span>
-                          <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">R$ {product.promotionalPrice.toFixed(2)}</span>
+                          <span className="text-xl font-bold text-indigo-600">R$ {product.promotionalPrice.toFixed(2)}</span>
                         </div>
                       ) : (
-                        <span className="text-xl font-bold text-gray-900 dark:text-white">R$ {product.price.toFixed(2)}</span>
+                        <span className="text-xl font-bold text-gray-900">R$ {product.price.toFixed(2)}</span>
                       )}
                     </div>
                     <Button 

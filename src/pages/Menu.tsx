@@ -9,7 +9,8 @@ import {
   Link as LinkIcon,
   ArrowRight,
   ShieldAlert,
-  ShoppingBag
+  ShoppingBag,
+  CreditCard
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -70,6 +71,15 @@ const menuItems = [
     color: "bg-amber-500",
     textColor: "text-amber-500",
     bgLight: "bg-amber-50"
+  },
+  {
+    title: "Planos",
+    description: "Escolha o melhor plano para suas necessidades.",
+    icon: CreditCard,
+    path: "/plans",
+    color: "bg-emerald-500",
+    textColor: "text-emerald-500",
+    bgLight: "bg-emerald-50"
   },
   {
     title: "Configurações",
@@ -142,21 +152,21 @@ export default function Menu() {
           >
             <Link 
               to={item.path}
-              className="group relative flex flex-col h-full bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 dark:ring-zinc-800 transition-all hover:shadow-md hover:ring-indigo-500/20"
+              className="group relative flex flex-col h-full bg-white rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 transition-all hover:shadow-md hover:ring-indigo-500/20"
             >
-              <div className={`h-12 w-12 rounded-xl ${item.bgLight} dark:bg-opacity-10 ${item.textColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              <div className={`h-12 w-12 rounded-xl ${item.bgLight} ${item.textColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                 <item.icon className="h-6 w-6" />
               </div>
               
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
                 <span>{item.title}</span>
               </h3>
               
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-grow">
+              <p className="text-sm text-gray-500 mb-6 flex-grow">
                 <span>{item.description}</span>
               </p>
               
-              <div className="flex items-center text-sm font-medium text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mt-auto">
+              <div className="flex items-center text-sm font-medium text-gray-400 group-hover:text-indigo-600 transition-colors mt-auto">
                 <span>Abrir</span>
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>

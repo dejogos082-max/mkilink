@@ -21,7 +21,21 @@
 
 :root {
   --hw-accel: none;
+  color-scheme: light;
   color-scheme: only light;
+}
+
+html, body {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Force override any dark mode media queries */
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
 }
 
 * {
