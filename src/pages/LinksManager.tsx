@@ -52,10 +52,9 @@ interface LinkData {
 }
 
 import { QRCodeCanvas } from "qrcode.react";
-import { isNativeAppMode } from "../utils/nativeMode";
 
 export default function LinksManager() {
-  const { currentUser } = useAuth();
+  const { currentUser, roleConfig } = useAuth()!;
   const navigate = useNavigate();
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,6 +183,15 @@ export default function LinksManager() {
       setFormError("");
       setIsSubmitting(true);
 
+      // Check limits
+      if (roleConfig) {
+        if (links.length >= roleConfig.maxAdvancedLinks) {
+          setFormError(`Você atingiu o limite de ${roleConfig.maxAdvancedLinks} links avançados para o seu plano.`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const shortCode = customAlias.trim() || nanoid(6);
       const newLinkRef = ref(db, `short_links/${shortCode}`);
       
@@ -296,8 +304,7 @@ export default function LinksManager() {
   };
 
   const openEditModal = (link: LinkData) => {
-    const prefix = isNativeAppMode() ? '/appnativo' : '';
-    navigate(`${prefix}/links/edit/${link.shortCode}`);
+    navigate(`/links/edit/${link.shortCode}`);
   };
 
   const filteredAndSortedLinks = links
@@ -360,7 +367,7 @@ export default function LinksManager() {
           <p className="text-sm text-gray-500 mt-1"><span>Crie, edite e acompanhe todos os seus links curtos.</span></p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => navigate(isNativeAppMode() ? '/appnativo/simple-links' : '/simple-links')} className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-transparent shadow-md shadow-amber-500/20">
+          <Button onClick={() => navigate('/simple-links')} className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-transparent shadow-md shadow-amber-500/20">
             <Zap className="w-4 h-4 mr-2" />
             <span>Links Curtos</span>
           </Button>
@@ -645,15 +652,17 @@ export default function LinksManager() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
-                            onClick={() => { setQrLink(link); setIsQrModalOpen(true); }}
-                          >
-                            <QrCode className="w-3.5 h-3.5 sm:mr-1.5" />
-                            <span className="hidden sm:inline text-xs font-medium">QR Code</span>
-                          </Button>
+                          {roleConfig?.qrCodes && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
+                              onClick={() => { setQrLink(link); setIsQrModalOpen(true); }}
+                            >
+                              <QrCode className="w-3.5 h-3.5 sm:mr-1.5" />
+                              <span className="hidden sm:inline text-xs font-medium">QR Code</span>
+                            </Button>
+                          )}
                           <Button 
                             variant="ghost" 
                             size="sm" 

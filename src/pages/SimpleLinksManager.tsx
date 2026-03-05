@@ -21,7 +21,6 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { Link as RouterLink } from "react-router-dom";
-import { isNativeAppMode } from "../utils/nativeMode";
 
 interface LinkData {
   id: string;
@@ -34,7 +33,7 @@ interface LinkData {
 }
 
 export default function SimpleLinksManager() {
-  const { currentUser } = useAuth();
+  const { currentUser, roleConfig } = useAuth()!;
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -99,6 +98,15 @@ export default function SimpleLinksManager() {
     try {
       setFormError("");
       setIsSubmitting(true);
+
+      // Check limits
+      if (roleConfig) {
+        if (links.length >= roleConfig.maxShortLinks) {
+          setFormError(`Você atingiu o limite de ${roleConfig.maxShortLinks} links curtos para o seu plano.`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
 
       const shortCode = nanoid(6); // Always random for simple links per request? "com nome aleatório"
       const newLinkRef = ref(db, `short_links/${shortCode}`);
@@ -190,7 +198,7 @@ export default function SimpleLinksManager() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm ring-1 ring-gray-900/5">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <RouterLink to={isNativeAppMode() ? "/appnativo/links" : "/links"} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <RouterLink to="/links" className="text-gray-400 hover:text-gray-600 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </RouterLink>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

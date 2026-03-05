@@ -13,7 +13,9 @@ import {
   CreditCard,
   Folder,
   Users,
-  User
+  User,
+  HelpCircle,
+  Code2
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -103,6 +105,15 @@ const menuItems = [
     bgLight: "bg-emerald-50"
   },
   {
+    title: "Suporte",
+    description: "Central de ajuda e chat com IA.",
+    icon: HelpCircle,
+    path: "/support",
+    color: "bg-cyan-500",
+    textColor: "text-cyan-500",
+    bgLight: "bg-cyan-50"
+  },
+  {
     title: "Configurações",
     description: "Preferências da conta e configurações globais.",
     icon: Settings,
@@ -154,6 +165,15 @@ export default function Menu() {
       color: "bg-red-500",
       textColor: "text-red-500",
       bgLight: "bg-red-50"
+    });
+    displayedMenuItems.push({
+      title: "Documentação",
+      description: "Documentação completa de endpoints e API do sistema.",
+      icon: Code2,
+      path: "/documentation",
+      color: "bg-indigo-600",
+      textColor: "text-indigo-600",
+      bgLight: "bg-indigo-50"
     });
   }
 

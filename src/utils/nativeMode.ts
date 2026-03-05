@@ -7,14 +7,6 @@ declare global {
 }
 
 export const isNativeAppMode = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  
-  // Check for WebView bridge
-  if (window.MKI_APP) return true;
-  
-  // Check for URL path
-  if (window.location.pathname.startsWith('/appnativo')) return true;
-  
   return false;
 };
 

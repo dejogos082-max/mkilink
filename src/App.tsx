@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
+import { NativeAppProvider } from "./contexts/NativeAppContext";
 import { Layout } from "./components/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { GlobalLoader } from "./components/GlobalLoader";
@@ -35,8 +36,12 @@ import CustomDomains from "./pages/CustomDomains";
 import Affiliates from "./pages/Affiliates";
 import EditLink from "./pages/EditLink";
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { currentUser, loading } = useAuth()!;
+import Support from "./pages/Support";
+import SupportChat from "./pages/SupportChat";
+import Documentation from "./pages/Documentation";
+
+function PrivateRoute({ children, pageId }: { children: React.ReactNode, pageId?: string }) {
+  const { currentUser, loading, roleConfig } = useAuth()!;
   
   if (loading) {
     return (
@@ -46,7 +51,31 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     );
   }
   
-  return currentUser ? <>{children}</> : <Navigate to="/login" />;
+  if (!currentUser) return <Navigate to="/login" />;
+
+  // Check for page access if pageId is provided
+  if (pageId && roleConfig && !roleConfig.access?.includes(pageId)) {
+    return <Navigate to="/dashboard" />;
+  }
+  
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser, loading, isAdmin } = useAuth()!;
+  
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
+        <div className="relative rounded-full border-4 border-indigo-600 border-t-transparent animate-spin h-12 w-12"></div>
+      </div>
+    );
+  }
+  
+  if (!currentUser) return <Navigate to="/login" />;
+  if (!isAdmin) return <Navigate to="/dashboard" />;
+  
+  return <>{children}</>;
 }
 
 import Landing from "./pages/Landing";
@@ -65,8 +94,6 @@ function Home() {
   return currentUser ? <Navigate to="/dashboard" /> : <Landing />;
 }
 
-import { NativeAppProvider } from "./contexts/NativeAppContext";
-
 export default function App() {
   return (
     <ErrorBoundary>
@@ -78,227 +105,254 @@ export default function App() {
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={<Home />} />
-                  <Route path="/appnativo" element={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>} />
                   <Route path="/login" element={<Layout><Login /></Layout>} />
-                <Route path="/auth0-login" element={<Layout><Auth0Login /></Layout>} />
-                <Route path="/register" element={<Layout><Register /></Layout>} />
-                
-                {/* Public Bio Page - No Layout, standalone */}
-                <Route path="/bio/:slug" element={<BioPage />} />
-                
-                {/* Redirect Route - No Layout usually, or minimal layout */}
-                <Route path="/:shortId" element={<Redirect />} />
+                  <Route path="/auth0-login" element={<Layout><Auth0Login /></Layout>} />
+                  <Route path="/register" element={<Layout><Register /></Layout>} />
+                  
+                  {/* Public Bio Page - No Layout, standalone */}
+                  <Route path="/bio/:slug" element={<BioPage />} />
+                  
+                  {/* Redirect Route - No Layout usually, or minimal layout */}
+                  <Route path="/:shortId" element={<Redirect />} />
 
-                {/* Protected Routes */}
-                <Route
-                  path="/dashboard"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Dashboard />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/menu"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Menu />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/links"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <LinksManager />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/links/edit/:shortCode"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <EditLink />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/simple-links"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <SimpleLinksManager />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/stats"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Stats />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/monetization"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Monetization />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/link-bio"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <LinkBioManager />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Settings />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Profile />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/checkout/plan/:planId"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <PlanCheckout />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/plans"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Plans />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/checkout/plan/:planId"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <PlanCheckout />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/store"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Store />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/store/product/:id"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <ProductDetails />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/store/checkout/:id"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <CheckoutPage />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/campaigns"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Campaigns />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/custom-domains"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <CustomDomains />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/affiliates"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Affiliates />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/admin"
-                  element={
-                    <PrivateRoute>
-                      <Layout>
-                        <Admin />
-                      </Layout>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/accept-invite/:inviteCode"
-                  element={
-                    <PrivateRoute>
-                      <AcceptInvite />
-                    </PrivateRoute>
-                  }
-                />
-              </Routes>
+                  {/* Protected Routes */}
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <PrivateRoute pageId="dashboard">
+                        <Layout>
+                          <Dashboard />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/menu"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <Menu />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/links"
+                    element={
+                      <PrivateRoute pageId="links">
+                        <Layout>
+                          <LinksManager />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/links/edit/:shortCode"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <EditLink />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/simple-links"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <SimpleLinksManager />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/stats"
+                    element={
+                      <PrivateRoute pageId="stats">
+                        <Layout>
+                          <Stats />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/monetization"
+                    element={
+                      <PrivateRoute pageId="monetization">
+                        <Layout>
+                          <Monetization />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/link-bio"
+                    element={
+                      <PrivateRoute pageId="link-bio">
+                        <Layout>
+                          <LinkBioManager />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <PrivateRoute pageId="settings">
+                        <Layout>
+                          <Settings />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <PrivateRoute pageId="profile">
+                        <Layout>
+                          <Profile />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/checkout/plan/:planId"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <PlanCheckout />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/plans"
+                    element={
+                      <PrivateRoute pageId="plans">
+                        <Layout>
+                          <Plans />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/checkout/plan/:planId"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <PlanCheckout />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/store"
+                    element={
+                      <PrivateRoute pageId="store">
+                        <Layout>
+                          <Store />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/store/product/:id"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <ProductDetails />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/store/checkout/:id"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <CheckoutPage />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/campaigns"
+                    element={
+                      <PrivateRoute pageId="campaigns">
+                        <Layout>
+                          <Campaigns />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/custom-domains"
+                    element={
+                      <PrivateRoute>
+                        <Layout>
+                          <CustomDomains />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/affiliates"
+                    element={
+                      <PrivateRoute pageId="affiliates">
+                        <Layout>
+                          <Affiliates />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <AdminRoute>
+                        <Layout>
+                          <Admin />
+                        </Layout>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/support"
+                    element={
+                      <PrivateRoute pageId="support">
+                        <Layout>
+                          <Support />
+                        </Layout>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/support/chat/:sessionId"
+                    element={
+                      <PrivateRoute>
+                        <SupportChat />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/documentation"
+                    element={
+                      <AdminRoute>
+                        <Layout>
+                          <Documentation />
+                        </Layout>
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/accept-invite/:inviteCode"
+                    element={
+                      <PrivateRoute>
+                        <AcceptInvite />
+                      </PrivateRoute>
+                    }
+                  />
+                </Routes>
               </NativeAppProvider>
             </Router>
           </SettingsProvider>

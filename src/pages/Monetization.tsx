@@ -27,7 +27,7 @@ interface ClickEvent {
 }
 
 export default function Monetization() {
-  const { currentUser } = useAuth();
+  const { currentUser, roleConfig } = useAuth()!;
   const [loading, setLoading] = useState(true);
   const [links, setLinks] = useState<LinkData[]>([]);
   const [weeklyClicks, setWeeklyClicks] = useState<number[]>([0, 0, 0]);
@@ -35,7 +35,11 @@ export default function Monetization() {
   const [joinLoading, setJoinLoading] = useState(false);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !roleConfig?.monetization) {
+      if (!currentUser) return;
+      setLoading(false);
+      return;
+    }
 
     // Check if already on waitlist (mock check, usually this would be in user profile)
     const userRef = ref(db, `users/${currentUser.uid}/monetization`);
@@ -190,6 +194,23 @@ export default function Monetization() {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <Loader2 className="animate-spin h-12 w-12 text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (!roleConfig?.monetization) {
+    return (
+      <div className="max-w-md mx-auto mt-10 p-8 bg-white rounded-2xl shadow-xl text-center">
+        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-8 h-8" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Monetização Bloqueada</h1>
+        <p className="text-gray-500 mb-8">
+            Seu plano atual não permite a participação no programa de monetização. Faça um upgrade para começar a ganhar.
+        </p>
+        <Button onClick={() => window.location.href = "/plans"} className="w-full">
+            Ver Planos
+        </Button>
       </div>
     );
   }

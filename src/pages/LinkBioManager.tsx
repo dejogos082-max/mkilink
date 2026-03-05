@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
-import { ref, onValue, query, orderByChild, equalTo, set, remove, get } from "firebase/database";
+import { ref, onValue, query, orderByChild, equalTo, set, remove, get, update } from "firebase/database";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Loader2, 
@@ -79,9 +79,10 @@ const LINK_TYPES: { type: LinkType; label: string; icon: any }[] = [
 ];
 
 export default function LinkBioManager() {
-  const { currentUser } = useAuth();
+  const { currentUser, roleConfig } = useAuth()!;
   const [loading, setLoading] = useState(true);
-  const [bioData, setBioData] = useState<BioData | null>(null);
+  const [bios, setBios] = useState<BioData[]>([]);
+  const [selectedBioId, setSelectedBioId] = useState<string | null>(null);
   const [slugInput, setSlugInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -103,27 +104,30 @@ export default function LinkBioManager() {
     const unsubscribe = onValue(bioRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const key = Object.keys(data)[0];
-        // Merge with default values to handle migrations/new fields
-        const loadedData = data[key];
-        const links = loadedData.links 
-            ? (Array.isArray(loadedData.links) ? loadedData.links : Object.values(loadedData.links)) 
+        const list = Object.entries(data).map(([key, value]: [string, any]) => {
+          const links = value.links 
+            ? (Array.isArray(value.links) ? value.links : Object.values(value.links)) 
             : [];
-            
-        setBioData({
-            ...loadedData,
+          return {
+            ...value,
             id: key,
             links,
             theme: {
                 backgroundType: 'color',
                 backgroundValue: '#f9fafb',
                 buttonStyle: 'rounded',
-                ...loadedData.theme
+                ...value.theme
             },
-            isPublic: loadedData.isPublic ?? true
+            isPublic: value.isPublic ?? true
+          };
         });
+        setBios(list);
+        if (list.length > 0 && !selectedBioId) {
+          setSelectedBioId(list[0].id);
+        }
       } else {
-        setBioData(null);
+        setBios([]);
+        setSelectedBioId(null);
       }
       setLoading(false);
     });
@@ -131,8 +135,19 @@ export default function LinkBioManager() {
     return () => unsubscribe();
   }, [currentUser]);
 
+  const bioData = bios.find(b => b.id === selectedBioId) || null;
+
   const handleCreateBio = async () => {
     if (!currentUser || !slugInput) return;
+
+    // Check limits
+    if (roleConfig) {
+      if (bios.length >= roleConfig.maxBioPages) {
+        setError(`Você atingiu o limite de ${roleConfig.maxBioPages} páginas na bio para o seu plano.`);
+        return;
+      }
+    }
+
     const cleanSlug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, "");
     
     if (cleanSlug.length < 3) {
@@ -173,6 +188,7 @@ export default function LinkBioManager() {
 
         await set(slugRef, newBio);
         setSlugInput("");
+        setSelectedBioId(cleanSlug);
     } catch (e) {
         console.error(e);
         setError("Erro ao criar. Tente novamente.");
@@ -183,12 +199,9 @@ export default function LinkBioManager() {
 
   const handleUpdateBio = async (updatedData: Partial<BioData>) => {
     if (!bioData) return;
-    // Optimistic update
-    setBioData(prev => prev ? ({ ...prev, ...updatedData }) : null);
     
-    // Debounce save or just save (for now direct save, maybe debounce in real app)
     try {
-        await set(ref(db, `link_bios/${bioData.id}`), { ...bioData, ...updatedData });
+        await update(ref(db, `link_bios/${bioData.id}`), updatedData);
     } catch (e) {
         console.error(e);
     }
@@ -199,7 +212,7 @@ export default function LinkBioManager() {
     setSaving(true);
     try {
         await remove(ref(db, `link_bios/${bioData.id}`));
-        setBioData(null);
+        setSelectedBioId(null);
         setIsDeleteModalOpen(false);
     } catch (e) {
         console.error(e);
@@ -262,50 +275,525 @@ export default function LinkBioManager() {
     );
   }
 
-  // Creation View
-  if (!bioData) {
-    return (
-      <div className="max-w-md mx-auto mt-10 p-8 bg-white rounded-2xl shadow-xl text-center">
-        <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Layout className="w-8 h-8" />
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Crie seu Link Bio</h1>
-        <p className="text-gray-500 mb-8">
-            Tenha uma página única para todos os seus links importantes. Rápido, bonito e otimizado para conversão.
-        </p>
-        
-        <div className="space-y-4 text-left">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Escolha seu endereço</label>
-                <div className="flex rounded-md shadow-sm">
-                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-                        app.com/bio/
-                    </span>
-                    <input
-                        type="text"
-                        value={slugInput}
-                        onChange={(e) => {
-                            setSlugInput(e.target.value);
-                            setError("");
-                        }}
-                        className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        placeholder="seu-nome"
-                    />
-                </div>
-                {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-            </div>
-            
-            <Button onClick={handleCreateBio} disabled={saving} className="w-full">
-                {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Criar Página"}
-            </Button>
-        </div>
+  const renderCreationView = () => (
+    <div className="max-w-md mx-auto mt-10 p-8 bg-white rounded-2xl shadow-xl text-center">
+      <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <Layout className="w-8 h-8" />
       </div>
-    );
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Crie seu Link Bio</h1>
+      <p className="text-gray-500 mb-8">
+          Tenha uma página única para todos os seus links importantes. Rápido, bonito e otimizado para conversão.
+      </p>
+      
+      <div className="space-y-4 text-left">
+          <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Escolha seu endereço</label>
+              <div className="flex rounded-md shadow-sm">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                      app.com/bio/
+                  </span>
+                  <input
+                      type="text"
+                      value={slugInput}
+                      onChange={(e) => {
+                          setSlugInput(e.target.value);
+                          setError("");
+                      }}
+                      className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="seu-nome"
+                  />
+              </div>
+              {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+          </div>
+          
+          <Button onClick={handleCreateBio} disabled={saving} className="w-full">
+              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Criar Página"}
+          </Button>
+      </div>
+    </div>
+  );
+
+  // Initial Creation View (if no bios exist)
+  if (bios.length === 0) {
+    return renderCreationView();
   }
 
   // Editor View
   return (
     <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-100px)]">
+        {/* Bio Selector Sidebar */}
+        <div className="w-full lg:w-64 flex flex-col gap-4">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Suas Páginas</h3>
+                    {(!roleConfig || bios.length < roleConfig.maxBioPages) && (
+                        <button 
+                            onClick={() => {
+                                setSelectedBioId(null);
+                                setSlugInput("");
+                                setError("");
+                            }}
+                            className={`p-1 rounded-lg transition-colors ${!selectedBioId ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                            title="Nova Página"
+                        >
+                            <Plus className="w-5 h-5" />
+                        </button>
+                    )}
+                </div>
+                <div className="space-y-2">
+                    {bios.map(bio => (
+                        <button
+                            key={bio.id}
+                            onClick={() => setSelectedBioId(bio.id)}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-all ${selectedBioId === bio.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${bio.isPublic ? 'bg-green-400' : 'bg-red-400'}`} />
+                                <span className="truncate">/{bio.id}</span>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {roleConfig && (
+                <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                    <p className="text-xs text-indigo-600 font-bold uppercase mb-2">Seu Plano</p>
+                    <div className="flex justify-between text-xs text-indigo-900 mb-1">
+                        <span>Páginas na Bio</span>
+                        <span>{bios.length} / {roleConfig.maxBioPages}</span>
+                    </div>
+                    <div className="h-1.5 bg-indigo-200 rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-indigo-600 transition-all"
+                            style={{ width: `${Math.min(100, (bios.length / roleConfig.maxBioPages) * 100)}%` }}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-h-0">
+            {!selectedBioId ? (
+                renderCreationView()
+            ) : bioData ? (
+                <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Header */}
+                    <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${bioData.isPublic ? 'bg-green-500' : 'bg-red-500'}`} />
+                            <span className="font-mono font-bold text-indigo-600">/{bioData.id}</span>
+                            <a href={`/bio/${bioData.id}`} target="_blank" rel="noreferrer" className="ml-2 text-gray-400 hover:text-indigo-600">
+                                <ExternalLink className="h-4 w-4" />
+                            </a>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={copyToClipboard}>
+                                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                                <span className="ml-2 hidden sm:inline">Copiar Link</span>
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex border-b border-gray-200">
+                        <button
+                            onClick={() => setActiveTab('content')}
+                            className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${activeTab === 'content' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Type className="inline-block w-4 h-4 mr-2" />
+                            Conteúdo
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('appearance')}
+                            className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${activeTab === 'appearance' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Palette className="inline-block w-4 h-4 mr-2" />
+                            Aparência
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('settings')}
+                            className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${activeTab === 'settings' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Lock className="inline-block w-4 h-4 mr-2" />
+                            Configurações Do Link Bio
+                        </button>
+                    </div>
+
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                        {activeTab === 'content' ? (
+                            <>
+                                {/* Profile Section */}
+                                <section className="space-y-4">
+                                    <h3 className="text-lg font-bold text-gray-900">Perfil</h3>
+                                    <div className="grid gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Foto de Perfil (URL)</label>
+                                            <div className="flex gap-2 items-center">
+                                                <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden shrink-0 relative group">
+                                                    <img src={bioData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
+                                                        <ImageIcon className="w-4 h-4 text-white" />
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={bioData.avatarUrl}
+                                                        onChange={(e) => handleUpdateBio({ avatarUrl: e.target.value })}
+                                                        className="flex-1 text-sm border-gray-300 rounded-lg"
+                                                        placeholder="https://..."
+                                                    />
+                                                    <input
+                                                        type="file"
+                                                        id="avatar-upload"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+
+                                                            try {
+                                                                setSaving(true);
+                                                                
+                                                                // 1. Get presigned URL from our backend
+                                                                const res = await fetch('/api/upload-url', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        filename: file.name,
+                                                                        contentType: file.type
+                                                                    })
+                                                                });
+                                                                
+                                                                if (!res.ok) {
+                                                                    const errorData = await res.json();
+                                                                    throw new Error(errorData.error || 'Failed to get upload URL');
+                                                                }
+                                                                
+                                                                const { uploadUrl, publicUrl } = await res.json();
+
+                                                                // 2. Upload directly to R2 using the presigned URL
+                                                                const uploadRes = await fetch(uploadUrl, {
+                                                                    method: 'PUT',
+                                                                    body: file,
+                                                                    headers: {
+                                                                        'Content-Type': file.type
+                                                                    }
+                                                                });
+
+                                                                if (!uploadRes.ok) {
+                                                                    throw new Error('Falha ao enviar arquivo para o Cloudflare R2. Verifique o CORS.');
+                                                                }
+
+                                                                handleUpdateBio({ avatarUrl: publicUrl });
+                                                            } catch (err: any) {
+                                                                console.error(err);
+                                                                setError(`Erro ao fazer upload: ${err.message || "Verifique as configurações do R2"}`);
+                                                            } finally {
+                                                                setSaving(false);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <Button 
+                                                        variant="secondary" 
+                                                        size="sm"
+                                                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                                                        disabled={saving}
+                                                    >
+                                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Upload"}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Título</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={bioData.title}
+                                                    onChange={(e) => handleUpdateBio({ title: e.target.value })}
+                                                    className="w-full text-sm border-gray-300 rounded-lg font-bold"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Subtítulo</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={bioData.subtitle || ""}
+                                                    onChange={(e) => handleUpdateBio({ subtitle: e.target.value })}
+                                                    className="w-full text-sm border-gray-300 rounded-lg"
+                                                    placeholder="Opcional"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Bio / Descrição</label>
+                                            <textarea 
+                                                value={bioData.description}
+                                                onChange={(e) => handleUpdateBio({ description: e.target.value })}
+                                                className="w-full text-sm border-gray-300 rounded-lg"
+                                                rows={2}
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* Links Section */}
+                                <section className="space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-lg font-bold text-gray-900">Links</h3>
+                                        <div className="flex gap-2">
+                                            <select 
+                                                className="text-sm border-gray-300 rounded-lg"
+                                                onChange={(e) => {
+                                                    if(e.target.value) {
+                                                        addLink(e.target.value as LinkType);
+                                                        e.target.value = "";
+                                                    }
+                                                }}
+                                            >
+                                                <option value="">+ Adicionar Link</option>
+                                                {LINK_TYPES.map(t => (
+                                                    <option key={t.type} value={t.type}>{t.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-3">
+                                        <AnimatePresence>
+                                            {bioData.links?.map((link, index) => (
+                                                <motion.div 
+                                                    key={link.id}
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    className="bg-gray-50 p-4 rounded-xl border border-gray-200 group"
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex flex-col gap-1 mt-2 text-gray-400">
+                                                            <button onClick={() => moveLink(index, 'up')} disabled={index === 0} className="hover:text-indigo-600 disabled:opacity-30">▲</button>
+                                                            <button onClick={() => moveLink(index, 'down')} disabled={index === (bioData.links.length - 1)} className="hover:text-indigo-600 disabled:opacity-30">▼</button>
+                                                        </div>
+                                                        <div className="flex-1 space-y-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-bold uppercase text-gray-400 bg-gray-200 px-2 py-0.5 rounded">
+                                                                    {link.type}
+                                                                </span>
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={link.title}
+                                                                    onChange={(e) => updateLink(index, 'title', e.target.value)}
+                                                                    className="flex-1 text-sm font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                                                    placeholder="Título do botão"
+                                                                />
+                                                            </div>
+                                                            <input 
+                                                                type="text" 
+                                                                value={link.url}
+                                                                onChange={(e) => updateLink(index, 'url', e.target.value)}
+                                                                className="w-full text-xs text-gray-500 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                                                placeholder="https://..."
+                                                            />
+                                                            <div className="flex items-center gap-4 pt-2">
+                                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={link.isHighlight}
+                                                                        onChange={(e) => updateLink(index, 'isHighlight', e.target.checked)}
+                                                                        className="rounded text-indigo-600 focus:ring-indigo-500" 
+                                                                    />
+                                                                    <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                                                                        <Star className="h-3 w-3" /> Destaque (Botão Grande)
+                                                                    </span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => removeLink(index)}
+                                                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            ))}
+                                        </AnimatePresence>
+                                        {(!bioData.links || bioData.links.length === 0) && (
+                                            <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                                                Nenhum link adicionado ainda.
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+                            </>
+                        ) : activeTab === 'appearance' ? (
+                            <section className="space-y-6">
+                                <h3 className="text-lg font-bold text-gray-900">Personalização</h3>
+                                
+                                {/* Background Settings */}
+                                <div className="space-y-3">
+                                    <label className="block text-sm font-medium text-gray-700">Fundo da Página</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <button 
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, backgroundType: 'color' } })}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${bioData.theme.backgroundType === 'color' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-200'}`}
+                                        >
+                                            Cor Sólida
+                                        </button>
+                                        <button 
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, backgroundType: 'image' } })}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${bioData.theme.backgroundType === 'image' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-200'}`}
+                                        >
+                                            Imagem
+                                        </button>
+                                        <button 
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, backgroundType: 'video' } })}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${bioData.theme.backgroundType === 'video' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-200'}`}
+                                        >
+                                            Vídeo
+                                        </button>
+                                    </div>
+
+                                    {bioData.theme.backgroundType === 'color' ? (
+                                        <div className="flex gap-3 flex-wrap">
+                                            {['#f9fafb', '#ffffff', '#111827', '#fdf2f8', '#eff6ff', '#f0fdf4', '#1e1b4b'].map(color => (
+                                                <button
+                                                    key={color}
+                                                    onClick={() => handleUpdateBio({ theme: { ...bioData.theme, backgroundValue: color } })}
+                                                    className={`w-10 h-10 rounded-full border-2 ${bioData.theme.backgroundValue === color ? 'border-indigo-600 ring-2 ring-indigo-200' : 'border-gray-200'}`}
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                            ))}
+                                            <input 
+                                                type="color" 
+                                                value={bioData.theme.backgroundValue}
+                                                onChange={(e) => handleUpdateBio({ theme: { ...bioData.theme, backgroundValue: e.target.value } })}
+                                                className="w-10 h-10 p-0 border-0 rounded-full overflow-hidden"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-500">URL do {bioData.theme.backgroundType === 'image' ? 'Imagem' : 'Vídeo (MP4)'}</label>
+                                            <input 
+                                                type="text" 
+                                                value={bioData.theme.backgroundValue}
+                                                onChange={(e) => handleUpdateBio({ theme: { ...bioData.theme, backgroundValue: e.target.value } })}
+                                                className="w-full text-sm border-gray-300 rounded-lg"
+                                                placeholder="https://..."
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Button Style */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Estilo dos Botões</label>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, buttonStyle: 'rounded' } })}
+                                            className={`px-4 py-2 rounded-lg border text-sm ${bioData.theme.buttonStyle === 'rounded' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-200'}`}
+                                        >
+                                            Arredondado
+                                        </button>
+                                        <button
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, buttonStyle: 'rounded-full' } })}
+                                            className={`px-4 py-2 rounded-full border text-sm ${bioData.theme.buttonStyle === 'rounded-full' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-200'}`}
+                                        >
+                                            Pílula
+                                        </button>
+                                        <button
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, buttonStyle: 'sharp' } })}
+                                            className={`px-4 py-2 border text-sm ${bioData.theme.buttonStyle === 'sharp' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-200'}`}
+                                        >
+                                            Quadrado
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Button Colors */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Cor dos Botões</label>
+                                    <div className="flex gap-3 flex-wrap">
+                                        {['#ffffff', '#111827', '#4f46e5', '#db2777', '#16a34a'].map(color => (
+                                            <button
+                                                key={color}
+                                                onClick={() => handleUpdateBio({ theme: { ...bioData.theme, buttonColor: color } })}
+                                                className={`w-10 h-10 rounded-full border-2 ${bioData.theme.buttonColor === color ? 'border-indigo-600 ring-2 ring-indigo-200' : 'border-gray-200'}`}
+                                                style={{ backgroundColor: color }}
+                                            />
+                                        ))}
+                                        <input 
+                                            type="color" 
+                                            value={bioData.theme.buttonColor}
+                                            onChange={(e) => handleUpdateBio({ theme: { ...bioData.theme, buttonColor: e.target.value } })}
+                                            className="w-10 h-10 p-0 border-0 rounded-full overflow-hidden"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Cor do Texto (Botões)</label>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, buttonTextColor: '#111827' } })}
+                                            className={`px-4 py-2 rounded-lg border ${bioData.theme.buttonTextColor === '#111827' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'}`}
+                                        >
+                                            Escuro
+                                        </button>
+                                        <button
+                                            onClick={() => handleUpdateBio({ theme: { ...bioData.theme, buttonTextColor: '#ffffff' } })}
+                                            className={`px-4 py-2 rounded-lg border ${bioData.theme.buttonTextColor === '#ffffff' ? 'bg-gray-800 text-white border-gray-900' : 'border-gray-200'}`}
+                                        >
+                                            Claro
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Cor do Texto (Página)</label>
+                                    <input 
+                                        type="color" 
+                                        value={bioData.theme.textColor}
+                                        onChange={(e) => handleUpdateBio({ theme: { ...bioData.theme, textColor: e.target.value } })}
+                                        className="w-full h-10 p-1 border border-gray-300 rounded-lg"
+                                    />
+                                </div>
+                            </section>
+                        ) : (
+                            <section className="space-y-6">
+                                <h3 className="text-lg font-bold text-gray-900">Configurações Do Link Bio</h3>
+                                
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-medium text-gray-900">Visibilidade da Página</h4>
+                                            <p className="text-sm text-gray-500">Defina se sua página é pública ou privada.</p>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleUpdateBio({ isPublic: !bioData.isPublic })}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${bioData.isPublic ? 'bg-green-500' : 'bg-gray-200'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${bioData.isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                    <div className="mt-2 text-xs font-medium">
+                                        Status: <span className={bioData.isPublic ? "text-green-600" : "text-red-600"}>{bioData.isPublic ? "PÚBLICO" : "PRIVADO"}</span>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+                    </div>
+                </div>
+            ) : null}
+        </div>
+
         {/* Delete Confirmation Modal */}
         <AnimatePresence>
             {isDeleteModalOpen && (
