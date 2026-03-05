@@ -48,18 +48,13 @@ interface BannedIP {
 
 export default function Admin() {
   const { currentUser, isAdmin } = useAuth() || { currentUser: null, isAdmin: false };
-  const [activeTab, setActiveTab] = useState<'users' | 'codes' | 'ips' | 'settings' | 'notifications' | 'roles'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'codes' | 'ips' | 'settings' | 'notifications'>('users');
   
   // Data States
   const [users, setUsers] = useState<UserData[]>([]);
   const [adminCodes, setAdminCodes] = useState<AdminCode[]>([]);
   const [bannedIps, setBannedIps] = useState<BannedIP[]>([]);
   const [storeEnabled, setStoreEnabled] = useState(true);
-  const [roleConfigs, setRoleConfigs] = useState<Record<string, any>>({
-    UserFree: { maxShortLinks: 10, maxAdvancedLinks: 0, maxCampaigns: 1, maxBioPages: 1, qrCodes: false, monetization: false, access: ["dashboard", "links", "profile"] },
-    UserPremium: { maxShortLinks: 100, maxAdvancedLinks: 10, maxCampaigns: 5, maxBioPages: 5, qrCodes: true, monetization: true, access: ["dashboard", "links", "link-bio", "campaigns", "stats", "monetization", "profile", "settings"] },
-    UserEnterprise: { maxShortLinks: 9999, maxAdvancedLinks: 9999, maxCampaigns: 9999, maxBioPages: 9999, qrCodes: true, monetization: true, access: ["dashboard", "links", "link-bio", "campaigns", "stats", "monetization", "profile", "settings", "affiliates", "custom-domains"] }
-  });
   
   // Notification States
   const [notifTarget, setNotifTarget] = useState<'all' | 'specific'>('all');
@@ -90,11 +85,6 @@ export default function Admin() {
   // Invite Admin State
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-
-  const filteredUsers = users.filter(user => 
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    user.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -171,21 +161,12 @@ export default function Admin() {
       }
     });
 
-    // Fetch Role Configs
-    const rolesRef = ref(db, "role_configs");
-    const unsubRoles = onValue(rolesRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setRoleConfigs(snapshot.val());
-      }
-    });
-
     return () => {
       unsubUsers();
       unsubCodes();
       unsubIps();
       unsubSettings();
       unsubScheduled();
-      unsubRoles();
     };
   }, [isAdmin]);
 
@@ -453,23 +434,10 @@ export default function Admin() {
     }
   };
 
-  const handleUpdateRoleConfig = async (roleName: string, config: any) => {
-    try {
-      await set(ref(db, `role_configs/${roleName}`), config);
-      showToast(`Configurações da role ${roleName} atualizadas`);
-    } catch (error) {
-      showToast("Erro ao atualizar role", "error");
-    }
-  };
-
-  const handleUpdateUserRole = async (userId: string, newRole: string) => {
-    try {
-      await update(ref(db, `users/${userId}`), { role: newRole });
-      showToast("Cargo do usuário atualizado");
-    } catch (error) {
-      showToast("Erro ao atualizar cargo", "error");
-    }
-  };
+  const filteredUsers = users.filter(u => 
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    u.id.includes(searchQuery)
+  );
 
   return (
     <div className="space-y-8 pb-12">
@@ -531,15 +499,6 @@ export default function Admin() {
         >
           <Ban className="w-4 h-4" />
           <span>IPs</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('roles')}
-          className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-            activeTab === 'roles' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span>Roles</span>
         </button>
         <button
           onClick={() => setActiveTab('notifications')}
@@ -613,16 +572,11 @@ export default function Admin() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <select
-                          value={user.role || "UserFree"}
-                          onChange={(e) => handleUpdateUserRole(user.id, e.target.value)}
-                          className="text-xs border-gray-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                          <option value="UserFree">Free</option>
-                          <option value="UserPremium">Premium</option>
-                          <option value="UserEnterprise">Enterprise</option>
-                          <option value="AdminUser">Admin</option>
-                        </select>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === 'AdminUser' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {user.role === 'AdminUser' ? 'Administrador' : 'Usuário'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -663,85 +617,6 @@ export default function Admin() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'roles' && (
-          <div className="p-6 space-y-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">Configuração de Roles & Limites</h2>
-            <div className="grid gap-8 lg:grid-cols-3">
-              {(['UserFree', 'UserPremium', 'UserEnterprise'] as const).map((roleName) => (
-                <div key={roleName} className="bg-gray-50 rounded-2xl p-6 border border-gray-200 space-y-4">
-                  <h3 className="font-bold text-indigo-600 uppercase tracking-wider">{roleName}</h3>
-                  <div className="space-y-3">
-                    <Input
-                      label="Links Curtos"
-                      type="number"
-                      value={roleConfigs[roleName]?.maxShortLinks}
-                      onChange={(e) => handleUpdateRoleConfig(roleName, { ...roleConfigs[roleName], maxShortLinks: parseInt(e.target.value) })}
-                    />
-                    <Input
-                      label="Links Avançados"
-                      type="number"
-                      value={roleConfigs[roleName]?.maxAdvancedLinks}
-                      onChange={(e) => handleUpdateRoleConfig(roleName, { ...roleConfigs[roleName], maxAdvancedLinks: parseInt(e.target.value) })}
-                    />
-                    <Input
-                      label="Campanhas"
-                      type="number"
-                      value={roleConfigs[roleName]?.maxCampaigns}
-                      onChange={(e) => handleUpdateRoleConfig(roleName, { ...roleConfigs[roleName], maxCampaigns: parseInt(e.target.value) })}
-                    />
-                    <Input
-                      label="Bio Pages"
-                      type="number"
-                      value={roleConfigs[roleName]?.maxBioPages}
-                      onChange={(e) => handleUpdateRoleConfig(roleName, { ...roleConfigs[roleName], maxBioPages: parseInt(e.target.value) })}
-                    />
-                    
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-sm font-medium text-gray-700">QR Codes Automáticos</span>
-                      <input 
-                        type="checkbox" 
-                        checked={roleConfigs[roleName]?.qrCodes}
-                        onChange={(e) => handleUpdateRoleConfig(roleName, { ...roleConfigs[roleName], qrCodes: e.target.checked })}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-sm font-medium text-gray-700">Monetização</span>
-                      <input 
-                        type="checkbox" 
-                        checked={roleConfigs[roleName]?.monetization}
-                        onChange={(e) => handleUpdateRoleConfig(roleName, { ...roleConfigs[roleName], monetization: e.target.checked })}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700">Acesso a Páginas</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {["dashboard", "links", "link-bio", "campaigns", "stats", "monetization", "affiliates", "store", "plans", "support", "settings", "profile", "documentation"].map(page => (
-                          <label key={page} className="flex items-center gap-2 text-xs text-gray-600">
-                            <input 
-                              type="checkbox"
-                              checked={roleConfigs[roleName]?.access?.includes(page)}
-                              onChange={(e) => {
-                                const currentAccess = roleConfigs[roleName]?.access || [];
-                                const newAccess = e.target.checked 
-                                  ? [...currentAccess, page]
-                                  : currentAccess.filter((p: string) => p !== page);
-                                handleUpdateRoleConfig(roleName, { ...roleConfigs[roleName], access: newAccess });
-                              }}
-                            />
-                            <span className="capitalize">{page.replace("-", " ")}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         )}

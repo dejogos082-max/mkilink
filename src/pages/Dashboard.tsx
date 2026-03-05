@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
-import { ref, query, orderByChild, equalTo, onValue, get, set } from "firebase/database";
+import { ref, query, orderByChild, equalTo, onValue } from "firebase/database";
 import { 
   Link as LinkIcon, 
   MousePointer2, 
@@ -15,7 +15,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Button } from "../components/Button";
 import { nanoid } from "nanoid";
-import { getPerformanceRate } from "../services/geminiService";
+import { set } from "firebase/database";
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
@@ -56,33 +56,15 @@ export default function Dashboard() {
     let viewsCount = 0;
 
     const updateStats = () => {
-      setStats(prev => ({
-        ...prev,
+      const performance = viewsCount > 0 ? (linksData.clicks / viewsCount) * 100 : 0;
+      setStats({
         totalLinks: linksData.count,
         totalClicks: linksData.clicks,
         totalCampaigns: campaignsCount,
-      }));
+        performance
+      });
       setLoading(false);
     };
-
-    const updatePerformance = async () => {
-      const perfRef = ref(db, `users/${currentUser.uid}/performance_stats`);
-      const snapshot = await get(perfRef);
-      const data = snapshot.val();
-      const now = Date.now();
-      const sevenDays = 7 * 24 * 60 * 60 * 1000;
-
-      if (!data || (now - data.lastUpdated > sevenDays)) {
-        const aiPerformance = await getPerformanceRate();
-        await set(perfRef, { rate: aiPerformance, lastUpdated: now });
-        setStats(prev => ({ ...prev, performance: aiPerformance }));
-      } else {
-        setStats(prev => ({ ...prev, performance: data.rate }));
-      }
-      setLoading(false);
-    };
-
-    updatePerformance();
 
     const unsubscribeLinks = onValue(linksRef, (snapshot) => {
       const data = snapshot.val();

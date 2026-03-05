@@ -5,7 +5,6 @@ import { db } from "../firebase";
 import { ref, onValue, set } from "firebase/database";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { isNativeAppMode } from "../utils/nativeMode";
 import {
   Save,
   User,
@@ -16,11 +15,10 @@ import {
   FileText,
   CheckCircle2,
   AlertCircle,
-  LogOut,
 } from "lucide-react";
 
 export default function Profile() {
-  const { currentUser, logout } = useAuth()!;
+  const { currentUser } = useAuth()!;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -288,13 +286,7 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className={`pt-4 flex ${isNativeAppMode() ? 'justify-between' : 'justify-end'} items-center`}>
-            {isNativeAppMode() && (
-              <Button type="button" variant="outline" onClick={logout} className="text-red-600 hover:bg-red-50 border-red-200">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            )}
+          <div className="pt-4 flex justify-end">
             <Button type="submit" disabled={saving} className="min-w-[150px]">
               {saving ? (
                 <div className="flex items-center gap-2">

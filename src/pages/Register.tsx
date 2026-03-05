@@ -3,7 +3,6 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, set } from "firebase/database";
 import { auth, db } from "../firebase";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { isNativeAppMode } from "../utils/nativeMode";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { motion } from "motion/react";
@@ -80,7 +79,7 @@ export default function Register() {
         referredBy: referralCode || null
       });
 
-      navigate(isNativeAppMode() ? "/appnativo/dashboard" : "/dashboard");
+      navigate("/dashboard");
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/unauthorized-domain') {
@@ -161,7 +160,7 @@ export default function Register() {
           <p className="text-center text-sm text-gray-600">
             <span>Já tem uma conta?</span>{" "}
             <Link
-              to={isNativeAppMode() ? "/appnativo/login" : "/login"}
+              to="/login"
               className="font-medium text-indigo-600 hover:text-indigo-500"
             >
               <span>Entrar</span>

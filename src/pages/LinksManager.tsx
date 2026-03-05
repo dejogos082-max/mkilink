@@ -54,7 +54,7 @@ interface LinkData {
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function LinksManager() {
-  const { currentUser, roleConfig } = useAuth()!;
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,15 +182,6 @@ export default function LinksManager() {
     try {
       setFormError("");
       setIsSubmitting(true);
-
-      // Check limits
-      if (roleConfig) {
-        if (links.length >= roleConfig.maxAdvancedLinks) {
-          setFormError(`Você atingiu o limite de ${roleConfig.maxAdvancedLinks} links avançados para o seu plano.`);
-          setIsSubmitting(false);
-          return;
-        }
-      }
 
       const shortCode = customAlias.trim() || nanoid(6);
       const newLinkRef = ref(db, `short_links/${shortCode}`);
@@ -652,17 +643,15 @@ export default function LinksManager() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          {roleConfig?.qrCodes && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
-                              onClick={() => { setQrLink(link); setIsQrModalOpen(true); }}
-                            >
-                              <QrCode className="w-3.5 h-3.5 sm:mr-1.5" />
-                              <span className="hidden sm:inline text-xs font-medium">QR Code</span>
-                            </Button>
-                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
+                            onClick={() => { setQrLink(link); setIsQrModalOpen(true); }}
+                          >
+                            <QrCode className="w-3.5 h-3.5 sm:mr-1.5" />
+                            <span className="hidden sm:inline text-xs font-medium">QR Code</span>
+                          </Button>
                           <Button 
                             variant="ghost" 
                             size="sm" 

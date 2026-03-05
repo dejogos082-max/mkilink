@@ -6,6 +6,65 @@
     <meta name="color-scheme" content="only light">
     <meta name="monetag" content="%VITE_MONETAG_ID%">
     <title>MKI Links PRO</title>
+    <script>
+      (async function(){
+        // Estado global
+        window.__APP_ENV__ = {
+          isApp: false,
+          appName: null,
+          platform: null,
+          version: null,
+          verified: false,
+        };
+
+        // 1) Verifica se existe bridge injetada pelo app
+        const bridge = window.MKI_APP; // nome que vamos usar no Sketchware
+        if (!bridge || typeof bridge.getHello !== "function") {
+          // não está no app (ou bridge não foi injetada)
+          return;
+        }
+
+        try {
+          // 2) handshake: pega um "hello" do app
+          // retorna JSON string: {"app":"MKI","platform":"android","version":"1.0.0","nonce":"..."}
+          const helloStr = await bridge.getHello();
+          const hello = JSON.parse(helloStr);
+
+          // 3) Validação simples (mínimo recomendado)
+          if (hello.app !== "MKI" || hello.platform !== "android" || !hello.nonce) return;
+
+          // 4) desafio: site gera challenge e pede assinatura do app
+          const challenge = "cfpages-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+          const signedStr = await bridge.signChallenge(challenge);
+          const signed = JSON.parse(signedStr);
+
+          // 5) valida o retorno
+          // aqui a validação é "fraca" (sem servidor), mas já evita detecção fake sem bridge real.
+          // Se você quiser validação forte, eu te mostro depois com um Worker/endpoint.
+          if (signed.challenge !== challenge || signed.nonce !== hello.nonce) return;
+
+          // ✅ OK: ativar modo app
+          window.__APP_ENV__ = {
+            isApp: true,
+            appName: hello.app,
+            platform: hello.platform,
+            version: hello.version || "unknown",
+            verified: true,
+          };
+
+          document.documentElement.classList.add("is-app");
+          window.dispatchEvent(new CustomEvent("mki:app-ready", { detail: window.__APP_ENV__ }));
+        } catch (e) {
+          // falhou handshake
+        }
+      })();
+
+      window.addEventListener("mki:app-ready", (ev) => {
+        console.log("Rodando no app:", ev.detail);
+        // Exemplo: esconder navbar do site e usar navbar nativa do app
+        document.body.classList.add("app-mode");
+      });
+    </script>
   </head>
   <body>
     <noscript><img src="https://my.rtmark.net/img.gif?f=sync&lr=1&partner=%VITE_RTMARK_PARTNER_ID%" width="1" height="1" /></noscript>

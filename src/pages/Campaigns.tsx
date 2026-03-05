@@ -17,13 +17,12 @@ interface Campaign {
 }
 
 export default function Campaigns() {
-  const { currentUser, roleConfig } = useAuth()!;
+  const { currentUser } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!currentUser) return;
@@ -55,18 +54,8 @@ export default function Campaigns() {
     e.preventDefault();
     if (!currentUser || !newCampaignName.trim()) return;
 
-    setError("");
     setIsSubmitting(true);
     try {
-      // Check limits
-      if (roleConfig) {
-        if (campaigns.length >= roleConfig.maxCampaigns) {
-          setError(`Você atingiu o limite de ${roleConfig.maxCampaigns} campanhas para o seu plano.`);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
       const newRef = push(ref(db, "campaigns"));
       await set(newRef, {
         name: newCampaignName,
@@ -79,7 +68,6 @@ export default function Campaigns() {
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error creating campaign:", error);
-      setError("Erro ao criar campanha.");
     } finally {
       setIsSubmitting(false);
     }
@@ -194,8 +182,6 @@ export default function Campaigns() {
                   placeholder="Ex: Promoção de Verão, Instagram Ads..."
                   required
                 />
-                
-                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
                 
                 <div className="pt-4 flex gap-3">
                   <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsModalOpen(false)}>

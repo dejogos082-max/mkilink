@@ -33,7 +33,7 @@ interface LinkData {
 }
 
 export default function SimpleLinksManager() {
-  const { currentUser, roleConfig } = useAuth()!;
+  const { currentUser } = useAuth();
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -98,15 +98,6 @@ export default function SimpleLinksManager() {
     try {
       setFormError("");
       setIsSubmitting(true);
-
-      // Check limits
-      if (roleConfig) {
-        if (links.length >= roleConfig.maxShortLinks) {
-          setFormError(`Você atingiu o limite de ${roleConfig.maxShortLinks} links curtos para o seu plano.`);
-          setIsSubmitting(false);
-          return;
-        }
-      }
 
       const shortCode = nanoid(6); // Always random for simple links per request? "com nome aleatório"
       const newLinkRef = ref(db, `short_links/${shortCode}`);

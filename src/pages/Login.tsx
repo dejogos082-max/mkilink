@@ -10,7 +10,6 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import axios from 'axios';
 import { Github } from "lucide-react";
 import { loginGithub } from "../lib/auth";
-import { isNativeAppMode } from "../utils/nativeMode";
 
 import { SecurityBadges } from "../components/SecurityBadges";
 
@@ -168,7 +167,7 @@ export default function Login() {
       console.error("Failed to log login:", logErr);
     }
 
-    navigate(isNativeAppMode() ? "/appnativo/dashboard" : "/dashboard");
+    navigate("/dashboard");
   }
 
   const handleCancelMfa = async () => {
@@ -291,7 +290,7 @@ export default function Login() {
                 <p className="text-center text-sm text-gray-600">
                   <span>Não tem uma conta?</span>{" "}
                   <Link
-                    to={isNativeAppMode() ? "/appnativo/register" : "/register"}
+                    to="/register"
                     className="font-medium text-indigo-600 hover:text-indigo-500"
                   >
                     <span>Cadastre-se</span>
