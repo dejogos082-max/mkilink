@@ -46,15 +46,27 @@ interface BannedIP {
   bannedBy: string;
 }
 
+interface RoleSettings {
+  maxShortLinks: number;
+  maxAdvancedLinks: number;
+  maxCampaigns: number;
+  maxBioPages: number;
+  allowAutoQrCode: boolean;
+  allowMonetization: boolean;
+  allowedPages: string[];
+}
+
 export default function Admin() {
   const { currentUser, isAdmin } = useAuth() || { currentUser: null, isAdmin: false };
-  const [activeTab, setActiveTab] = useState<'users' | 'codes' | 'ips' | 'settings' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'codes' | 'ips' | 'settings' | 'notifications' | 'roles'>('users');
   
   // Data States
   const [users, setUsers] = useState<UserData[]>([]);
   const [adminCodes, setAdminCodes] = useState<AdminCode[]>([]);
   const [bannedIps, setBannedIps] = useState<BannedIP[]>([]);
   const [storeEnabled, setStoreEnabled] = useState(true);
+  const [roleSettings, setRoleSettings] = useState<Record<string, RoleSettings>>({});
+  const [selectedRole, setSelectedRole] = useState<string>('UserFree');
   
   // Notification States
   const [notifTarget, setNotifTarget] = useState<'all' | 'specific'>('all');
@@ -142,6 +154,41 @@ export default function Admin() {
         const data = snapshot.val();
         if (data.storeEnabled !== undefined) {
           setStoreEnabled(data.storeEnabled);
+        }
+        if (data.roles) {
+          setRoleSettings(data.roles);
+        } else {
+          // Initialize default roles if not present
+          const defaultRoles = {
+            UserFree: {
+              maxShortLinks: 10,
+              maxAdvancedLinks: 0,
+              maxCampaigns: 0,
+              maxBioPages: 1,
+              allowAutoQrCode: false,
+              allowMonetization: false,
+              allowedPages: ['/dashboard', '/links', '/profile']
+            },
+            UserPremium: {
+              maxShortLinks: 50,
+              maxAdvancedLinks: 10,
+              maxCampaigns: 5,
+              maxBioPages: 3,
+              allowAutoQrCode: true,
+              allowMonetization: false,
+              allowedPages: ['/dashboard', '/links', '/profile', '/campaigns', '/stats']
+            },
+            UserEnterprise: {
+              maxShortLinks: 9999,
+              maxAdvancedLinks: 9999,
+              maxCampaigns: 9999,
+              maxBioPages: 9999,
+              allowAutoQrCode: true,
+              allowMonetization: true,
+              allowedPages: ['/dashboard', '/links', '/profile', '/campaigns', '/stats', '/monetization', '/custom-domains', '/affiliates']
+            }
+          };
+          setRoleSettings(defaultRoles);
         }
       }
     });
@@ -434,6 +481,25 @@ export default function Admin() {
     }
   };
 
+  const handleSaveRoleSettings = async () => {
+    try {
+      await update(ref(db, "settings/roles"), roleSettings);
+      showToast("Configurações de planos salvas com sucesso!");
+    } catch (error) {
+      showToast("Erro ao salvar configurações", "error");
+    }
+  };
+
+  const updateRoleSetting = (field: keyof RoleSettings, value: any) => {
+    setRoleSettings(prev => ({
+      ...prev,
+      [selectedRole]: {
+        ...prev[selectedRole],
+        [field]: value
+      }
+    }));
+  };
+
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.id.includes(searchQuery)
@@ -508,6 +574,15 @@ export default function Admin() {
         >
           <Bell className="w-4 h-4" />
           <span>Avisos</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('roles')}
+          className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            activeTab === 'roles' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4" />
+          <span>Planos</span>
         </button>
         <button
           onClick={() => setActiveTab('settings')}
@@ -897,6 +972,144 @@ export default function Admin() {
                 </label>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'roles' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Configuração de Planos</h2>
+              <Button onClick={handleSaveRoleSettings} size="sm" className="bg-indigo-600 text-white">
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Salvar Alterações
+              </Button>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o Plano para Editar</label>
+              <div className="flex gap-2">
+                {['UserFree', 'UserPremium', 'UserEnterprise'].map((role) => (
+                  <button
+                    key={role}
+                    onClick={() => setSelectedRole(role)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      selectedRole === role
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 ring-2 ring-indigo-500/20'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {role === 'UserFree' ? 'Gratuito' : role === 'UserPremium' ? 'Premium' : 'Enterprise'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {roleSettings[selectedRole] && (
+              <div className="space-y-8">
+                {/* Limits Section */}
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Limites do Plano</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Input
+                      label="Máx. Links Curtos"
+                      type="number"
+                      value={roleSettings[selectedRole].maxShortLinks}
+                      onChange={(e) => updateRoleSetting('maxShortLinks', Number(e.target.value))}
+                    />
+                    <Input
+                      label="Máx. Links Avançados"
+                      type="number"
+                      value={roleSettings[selectedRole].maxAdvancedLinks}
+                      onChange={(e) => updateRoleSetting('maxAdvancedLinks', Number(e.target.value))}
+                    />
+                    <Input
+                      label="Máx. Campanhas"
+                      type="number"
+                      value={roleSettings[selectedRole].maxCampaigns}
+                      onChange={(e) => updateRoleSetting('maxCampaigns', Number(e.target.value))}
+                    />
+                    <Input
+                      label="Máx. Páginas Bio"
+                      type="number"
+                      value={roleSettings[selectedRole].maxBioPages}
+                      onChange={(e) => updateRoleSetting('maxBioPages', Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                {/* Features Section */}
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Recursos Permitidos</h3>
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:border-indigo-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={roleSettings[selectedRole].allowAutoQrCode}
+                        onChange={(e) => updateRoleSetting('allowAutoQrCode', e.target.checked)}
+                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                      />
+                      <div>
+                        <span className="block text-sm font-medium text-gray-900">QR Code Automático</span>
+                        <span className="block text-xs text-gray-500">Permitir geração automática de QR Codes para links</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:border-indigo-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={roleSettings[selectedRole].allowMonetization}
+                        onChange={(e) => updateRoleSetting('allowMonetization', e.target.checked)}
+                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                      />
+                      <div>
+                        <span className="block text-sm font-medium text-gray-900">Monetização</span>
+                        <span className="block text-xs text-gray-500">Permitir participação no programa de monetização</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Page Access Section */}
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Acesso às Páginas</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {[
+                      { path: '/dashboard', label: 'Dashboard' },
+                      { path: '/links', label: 'Gerenciador de Links' },
+                      { path: '/simple-links', label: 'Links Simples' },
+                      { path: '/stats', label: 'Estatísticas' },
+                      { path: '/monetization', label: 'Monetização' },
+                      { path: '/link-bio', label: 'Link na Bio' },
+                      { path: '/settings', label: 'Configurações' },
+                      { path: '/profile', label: 'Perfil' },
+                      { path: '/store', label: 'Loja' },
+                      { path: '/campaigns', label: 'Campanhas' },
+                      { path: '/custom-domains', label: 'Domínios Personalizados' },
+                      { path: '/affiliates', label: 'Afiliados' },
+                    ].map((page) => (
+                      <label key={page.path} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:border-indigo-300 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={roleSettings[selectedRole].allowedPages?.includes(page.path)}
+                          onChange={(e) => {
+                            const currentPages = roleSettings[selectedRole].allowedPages || [];
+                            let newPages;
+                            if (e.target.checked) {
+                              newPages = [...currentPages, page.path];
+                            } else {
+                              newPages = currentPages.filter(p => p !== page.path);
+                            }
+                            updateRoleSetting('allowedPages', newPages);
+                          }}
+                          className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                        />
+                        <span className="text-sm text-gray-700">{page.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

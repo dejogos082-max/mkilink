@@ -38,7 +38,7 @@ interface LinkData {
 }
 
 export default function EditLink() {
-  const { currentUser } = useAuth();
+  const { currentUser, roleSettings } = useAuth();
   const navigate = useNavigate();
   const { shortCode } = useParams();
   const [loading, setLoading] = useState(true);
@@ -316,7 +316,9 @@ export default function EditLink() {
                 <select 
                 value={settingsForm.adCount}
                 onChange={(e) => setSettingsForm({...settingsForm, adCount: Number(e.target.value)})}
-                className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 disabled:bg-gray-100 disabled:text-gray-400"
+                disabled={!roleSettings?.allowMonetization}
+                title={!roleSettings?.allowMonetization ? "Upgrade para monetizar seus links" : ""}
                 >
                 <option value={0}>Sem Anúncios</option>
                 <option value={1}>Baixo (1 Anúncio)</option>
@@ -324,18 +326,22 @@ export default function EditLink() {
                 <option value={5}>Alto (5 Anúncios)</option>
                 <option value={10}>Máximo (10 Anúncios)</option>
                 </select>
+                {!roleSettings?.allowMonetization && (
+                    <p className="text-xs text-red-500 mt-1">Monetização não disponível no seu plano.</p>
+                )}
             </div>
 
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700"><span>Duração da Contagem (Segundos)</span></label>
-                <input 
-                type="number" 
-                min="15"
-                max="60"
+                <select 
                 value={settingsForm.duration}
-                onChange={(e) => setSettingsForm({...settingsForm, duration: Math.max(15, Number(e.target.value))})}
-                className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
-                />
+                onChange={(e) => setSettingsForm({...settingsForm, duration: Number(e.target.value)})}
+                className="w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                >
+                  {Array.from({ length: 46 }, (_, i) => i + 15).map(seconds => (
+                    <option key={seconds} value={seconds}>{seconds} segundos</option>
+                  ))}
+                </select>
                 <p className="text-xs text-gray-500"><span>Mínimo 15 segundos para validação segura.</span></p>
             </div>
 

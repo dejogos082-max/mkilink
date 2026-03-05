@@ -3,10 +3,22 @@ import { User, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/a
 import { ref, push, onValue, update } from "firebase/database";
 import { auth, db } from "../firebase";
 
+interface RoleSettings {
+  maxShortLinks: number;
+  maxAdvancedLinks: number;
+  maxCampaigns: number;
+  maxBioPages: number;
+  allowAutoQrCode: boolean;
+  allowMonetization: boolean;
+  allowedPages: string[];
+}
+
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   isAdmin: boolean;
+  role: string | null;
+  roleSettings: RoleSettings | null;
   logout: () => Promise<void>;
 }
 
@@ -20,6 +32,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const [roleSettings, setRoleSettings] = useState<RoleSettings | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -32,6 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             firebaseSignOut(auth);
             setCurrentUser(null);
             setIsAdmin(false);
+            setRole(null);
+            setRoleSettings(null);
             setLoading(false);
             alert(`Sua conta foi ${status === 'banned' ? 'banida' : 'suspensa'}. Entre em contato com o suporte.`);
             return;
@@ -40,11 +56,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setCurrentUser(user);
         
-        // Check for admin role
+        // Check for role
         const roleRef = ref(db, `users/${user.uid}/role`);
         onValue(roleRef, (snapshot) => {
-          const role = snapshot.val();
-          setIsAdmin(role === "AdminUser");
+          const userRole = snapshot.val() || "UserFree"; // Default to UserFree
+          setRole(userRole);
+          setIsAdmin(userRole === "AdminUser");
+
+          // Fetch settings for this role
+          const settingsRef = ref(db, `settings/roles/${userRole}`);
+          onValue(settingsRef, (settingsSnapshot) => {
+            if (settingsSnapshot.exists()) {
+              setRoleSettings(settingsSnapshot.val());
+            } else {
+              // Default settings if not configured
+              setRoleSettings({
+                maxShortLinks: 10,
+                maxAdvancedLinks: 5,
+                maxCampaigns: 1,
+                maxBioPages: 1,
+                allowAutoQrCode: false,
+                allowMonetization: false,
+                allowedPages: []
+              });
+            }
+          });
         });
 
         // Always ensure email is up to date
@@ -101,6 +137,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     currentUser,
     loading,
     isAdmin,
+    role,
+    roleSettings,
     logout,
   };
 
