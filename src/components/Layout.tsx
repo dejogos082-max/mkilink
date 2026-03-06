@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import React, { ReactNode, useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useNativeApp } from "../contexts/NativeAppContext";
 import { Link, useLocation } from "react-router-dom";
 import { LogOut, Link as LinkIcon, Grid, X, Bell, Trash2, Check } from "lucide-react";
 import { Button } from "./Button";
@@ -10,7 +9,6 @@ import { ref, onValue, update, remove, push } from "firebase/database";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { currentUser, logout, isAdmin } = useAuth()!;
-  const { isNativeApp, setNativeApp } = useNativeApp();
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const [toast, setToast] = useState<{title: string, message: string, type: string, actionType?: string, actionPayload?: string} | null>(null);
@@ -18,11 +16,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-
-  const handleLogout = async () => {
-    await logout();
-    setNativeApp(false);
-  };
 
   // Scheduled Notifications Worker
   useEffect(() => {
@@ -175,203 +168,6 @@ export function Layout({ children }: { children: ReactNode }) {
       await update(ref(db), updates);
     }
   };
-
-  if (isNativeApp) {
-    return (
-      <div className="min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-indigo-100 selection:text-indigo-900 pb-20">
-        <AnimatePresence>
-          {toast && (
-            <motion.div
-              initial={{ opacity: 0, y: -50, x: 0 }}
-              animate={{ opacity: 1, y: 0, x: 0 }}
-              exit={{ opacity: 0, y: -50, x: 0 }}
-              className="fixed top-20 right-4 z-[100] w-80 bg-white rounded-xl shadow-2xl ring-1 ring-gray-900/5 overflow-hidden"
-            >
-              <div className={`h-1 w-full ${
-                toast.type === 'error' ? 'bg-red-500' :
-                toast.type === 'warning' ? 'bg-amber-500' :
-                toast.type === 'success' ? 'bg-emerald-500' :
-                'bg-indigo-500'
-              }`} />
-              <div className="p-4 flex items-start gap-3">
-                <div className={`mt-0.5 p-1.5 rounded-full shrink-0 ${
-                  toast.type === 'error' ? 'bg-red-100 text-red-600' :
-                  toast.type === 'warning' ? 'bg-amber-100 text-amber-600' :
-                  toast.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
-                  'bg-indigo-100 text-indigo-600'
-                }`}>
-                  <Bell className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-bold text-gray-900">{toast.title}</h4>
-                  <p className="text-xs text-gray-500 mt-1">{toast.message}</p>
-                </div>
-                <button 
-                  onClick={() => setToast(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Native Header */}
-        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200 px-4 h-14 flex items-center justify-between">
-           <div className="flex items-center gap-2">
-             <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
-               <LinkIcon className="h-5 w-5" />
-             </div>
-             <span className="font-bold text-lg text-indigo-600">MKI Links</span>
-           </div>
-           
-           {currentUser && (
-             <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)} 
-                  className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full"
-                >
-                   <Bell className="h-5 w-5" />
-                   {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-1 ring-white" />}
-                </button>
-             </div>
-           )}
-        </header>
-
-        {/* Notifications Drawer */}
-        <AnimatePresence>
-          {showNotifications && currentUser && (
-             <div className="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm" onClick={() => setShowNotifications(false)}>
-                <motion.div 
-                  initial={{ y: "100%" }}
-                  animate={{ y: 0 }}
-                  exit={{ y: "100%" }}
-                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                  className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl"
-                  onClick={e => e.stopPropagation()}
-                >
-                   <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                      <h3 className="font-bold text-lg text-gray-900">Notificações</h3>
-                      <div className="flex items-center gap-3">
-                        {unreadCount > 0 && (
-                          <button 
-                            onClick={markAllAsRead}
-                            className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                          >
-                            Ler todas
-                          </button>
-                        )}
-                        <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-gray-200 rounded-full">
-                          <X className="h-5 w-5 text-gray-500" />
-                        </button>
-                      </div>
-                   </div>
-                   
-                   <div className="overflow-y-auto flex-1">
-                     {notifications.length === 0 ? (
-                       <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-                         <div className="bg-gray-100 p-4 rounded-full mb-3">
-                           <Bell className="w-8 h-8 text-gray-400" />
-                         </div>
-                         <p className="text-sm font-medium">Nenhuma notificação</p>
-                         <p className="text-xs text-gray-400 mt-1">Você está em dia!</p>
-                       </div>
-                     ) : (
-                       <div className="divide-y divide-gray-50">
-                         {notifications.map((notif) => (
-                           <div 
-                             key={notif.id}
-                             onClick={() => markAsRead(notif.id)}
-                             className={`p-4 active:bg-gray-50 transition-colors cursor-pointer relative ${!notif.read ? 'bg-indigo-50/40' : ''}`}
-                           >
-                             <div className="flex items-start gap-3">
-                               <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
-                                 notif.type === 'error' ? 'bg-red-500' :
-                                 notif.type === 'warning' ? 'bg-amber-500' :
-                                 notif.type === 'success' ? 'bg-emerald-500' :
-                                 'bg-indigo-500'
-                               }`} />
-                               <div className="flex-1 min-w-0">
-                                 <p className={`text-sm font-medium ${!notif.read ? 'text-gray-900' : 'text-gray-600'}`}>
-                                   {notif.title}
-                                 </p>
-                                 <p className="text-xs text-gray-500 mt-0.5 break-words leading-relaxed">
-                                   {notif.message}
-                                 </p>
-                                 {notif.actionType === 'link' && notif.actionPayload && (
-                                   <a 
-                                     href={notif.actionPayload} 
-                                     target="_blank" 
-                                     rel="noopener noreferrer"
-                                     className="mt-3 text-xs font-medium text-white bg-indigo-600 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 active:scale-95 transition-transform"
-                                     onClick={(e) => e.stopPropagation()}
-                                   >
-                                     Abrir Link <LinkIcon className="w-3 h-3" />
-                                   </a>
-                                 )}
-                                 {notif.actionType === 'route' && notif.actionPayload && (
-                                   <Link 
-                                     to={notif.actionPayload}
-                                     className="mt-3 text-xs font-medium text-white bg-indigo-600 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 active:scale-95 transition-transform"
-                                     onClick={(e) => { e.stopPropagation(); setShowNotifications(false); }}
-                                   >
-                                     Acessar <LinkIcon className="w-3 h-3" />
-                                   </Link>
-                                 )}
-                                 <p className="text-[10px] text-gray-400 mt-2">
-                                   {new Date(notif.createdAt).toLocaleString()}
-                                 </p>
-                               </div>
-                               <button 
-                                 onClick={(e) => deleteNotification(notif.id, e)}
-                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-                               >
-                                 <Trash2 className="w-4 h-4" />
-                               </button>
-                             </div>
-                           </div>
-                         ))}
-                       </div>
-                     )}
-                   </div>
-                </motion.div>
-             </div>
-          )}
-        </AnimatePresence>
-
-        <main className="p-4 pb-[calc(80px+env(safe-area-inset-bottom))]">
-          {children}
-        </main>
-
-        {/* Bottom Navigation Bar - Sketchware/Native Style */}
-        {currentUser && (
-          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-start pt-2 h-[calc(60px+env(safe-area-inset-bottom))] z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-             <Link to="/dashboard" className={`flex flex-col items-center justify-center w-full h-[50px] active:bg-gray-50 ${location.pathname === '/dashboard' ? 'text-indigo-600' : 'text-gray-400'}`}>
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <LinkIcon className="h-6 w-6" strokeWidth={location.pathname === '/dashboard' ? 2.5 : 2} />
-                </motion.div>
-                <span className="text-[10px] mt-1 font-medium">Links</span>
-             </Link>
-             
-             <Link to="/menu" className={`flex flex-col items-center justify-center w-full h-[50px] active:bg-gray-50 ${location.pathname === '/menu' ? 'text-indigo-600' : 'text-gray-400'}`}>
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <Grid className="h-6 w-6" strokeWidth={location.pathname === '/menu' ? 2.5 : 2} />
-                </motion.div>
-                <span className="text-[10px] mt-1 font-medium">Menu</span>
-             </Link>
-             
-             <button onClick={handleLogout} className="flex flex-col items-center justify-center w-full h-[50px] text-gray-400 active:bg-red-50 hover:text-red-600">
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <LogOut className="h-6 w-6" />
-                </motion.div>
-                <span className="text-[10px] mt-1 font-medium">Sair</span>
-             </button>
-          </nav>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-indigo-100 selection:text-indigo-900">

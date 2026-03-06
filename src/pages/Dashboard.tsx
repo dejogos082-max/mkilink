@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
-import { ref, query, orderByChild, equalTo, onValue, get, set } from "firebase/database";
-import { GoogleGenAI } from "@google/genai";
+import { ref, query, orderByChild, equalTo, onValue } from "firebase/database";
 import { 
   Link as LinkIcon, 
   MousePointer2, 
@@ -10,13 +9,13 @@ import {
   Plus,
   Zap,
   ArrowRight,
-  Folder,
-  Sparkles
+  Folder
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Button } from "../components/Button";
 import { nanoid } from "nanoid";
+import { set } from "firebase/database";
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
@@ -27,7 +26,6 @@ export default function Dashboard() {
     totalCampaigns: 0,
     performance: 0
   });
-  const [aiStats, setAiStats] = useState<{ score: number; analysis: string; lastCalculatedAt: number } | null>(null);
   const [recentLinks, setRecentLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickLinkUrl, setQuickLinkUrl] = useState("");
@@ -52,84 +50,20 @@ export default function Dashboard() {
 
     // We'll use views to calculate performance (CTR)
     const viewsRef = query(ref(db, `views/${currentUser.uid}`));
-    const aiStatsRef = ref(db, `users/${currentUser.uid}/stats/performance`);
 
-    let linksData = { count: 0, clicks: 0, list: [] as any[] };
+    let linksData = { count: 0, clicks: 0 };
     let campaignsCount = 0;
     let viewsCount = 0;
 
     const updateStats = () => {
-      // Basic stats
+      const performance = viewsCount > 0 ? (linksData.clicks / viewsCount) * 100 : 0;
       setStats({
         totalLinks: linksData.count,
         totalClicks: linksData.clicks,
         totalCampaigns: campaignsCount,
-        performance: 0 // Unused now
+        performance
       });
       setLoading(false);
-    };
-
-    const checkAndRunAiAnalysis = async (currentLinks: any[]) => {
-      try {
-        const snapshot = await get(aiStatsRef);
-        const currentAiStats = snapshot.val();
-        
-        const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-        const now = Date.now();
-
-        if (currentAiStats) {
-          setAiStats(currentAiStats);
-        }
-
-        // Check if we need to recalculate (if never calculated or older than 1 week)
-        if (!currentAiStats || (now - currentAiStats.lastCalculatedAt > ONE_WEEK)) {
-          console.log("Running AI Performance Analysis...");
-          
-          // Prepare data for AI
-          const totalClicks = currentLinks.reduce((acc, curr) => acc + (curr.clicks || 0), 0);
-          const totalLinks = currentLinks.length;
-          const avgClicks = totalLinks > 0 ? totalClicks / totalLinks : 0;
-          const topLinks = [...currentLinks].sort((a, b) => b.clicks - a.clicks).slice(0, 3);
-          
-          const prompt = `
-            Analyze the following link performance data for a user:
-            - Total Links: ${totalLinks}
-            - Total Clicks: ${totalClicks}
-            - Average Clicks per Link: ${avgClicks.toFixed(2)}
-            - Top 3 Links Clicks: ${topLinks.map(l => l.clicks).join(', ')}
-            
-            Based on this, provide:
-            1. A performance score from 0 to 100 (integer). 0 is terrible, 100 is viral/perfect. Be realistic.
-            2. A 1-sentence analysis in Portuguese explaining the score.
-            
-            Return ONLY a JSON object: { "score": number, "analysis": "string" }
-          `;
-
-          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-              responseMimeType: "application/json"
-            }
-          });
-          
-          const resultText = response.text;
-          if (resultText) {
-            const result = JSON.parse(resultText);
-            const newStats = {
-              score: result.score,
-              analysis: result.analysis,
-              lastCalculatedAt: now
-            };
-            
-            await set(aiStatsRef, newStats);
-            setAiStats(newStats);
-          }
-        }
-      } catch (error) {
-        console.error("Error running AI analysis:", error);
-      }
     };
 
     const unsubscribeLinks = onValue(linksRef, (snapshot) => {
@@ -138,7 +72,6 @@ export default function Dashboard() {
         const linksList = Object.values(data);
         linksData.count = linksList.length;
         linksData.clicks = linksList.reduce<number>((acc, curr: any) => acc + (curr.clicks || 0), 0);
-        linksData.list = linksList;
 
         // Get recent 5 links
         const recent = Object.entries(data)
@@ -146,14 +79,9 @@ export default function Dashboard() {
             .sort((a, b) => b.createdAt - a.createdAt)
             .slice(0, 5);
         setRecentLinks(recent);
-        
-        // Trigger AI check (debounced or just once per load effectively handled by the check inside)
-        // We pass the list to the async function
-        checkAndRunAiAnalysis(linksList);
       } else {
-        linksData = { count: 0, clicks: 0, list: [] };
+        linksData = { count: 0, clicks: 0 };
         setRecentLinks([]);
-        checkAndRunAiAnalysis([]);
       }
       updateStats();
     });
@@ -283,18 +211,10 @@ export default function Dashboard() {
               <Activity className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-1">
-                <p className="text-sm font-medium text-gray-500">Taxa de Performance</p>
-                <Sparkles className="w-3 h-3 text-amber-500" />
-              </div>
+              <p className="text-sm font-medium text-gray-500">Performance</p>
               <h3 className="text-2xl font-bold text-gray-900">
-                {loading ? "..." : (aiStats ? `${aiStats.score}%` : "Calculando...")}
+                {loading ? "..." : `${stats.performance.toFixed(1)}%`}
               </h3>
-              {aiStats && (
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2" title={aiStats.analysis}>
-                  {aiStats.analysis}
-                </p>
-              )}
             </div>
           </div>
         </motion.div>

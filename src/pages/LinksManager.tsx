@@ -54,14 +54,11 @@ interface LinkData {
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function LinksManager() {
-  const { currentUser, roleSettings } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Check limits
-  const isLimitReached = roleSettings && links.length >= roleSettings.maxAdvancedLinks;
-
   // New Data States
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [customDomains, setCustomDomains] = useState<any[]>([]);
@@ -365,16 +362,7 @@ export default function LinksManager() {
             <Zap className="w-4 h-4 mr-2" />
             <span>Links Curtos</span>
           </Button>
-          <Button 
-            onClick={() => {
-              if (isLimitReached) {
-                showToast(`Limite de ${roleSettings?.maxAdvancedLinks} links atingido. Faça upgrade!`, 'error');
-                return;
-              }
-              setIsCreateModalOpen(true);
-            }} 
-            className={`shrink-0 shadow-md shadow-indigo-500/20 ${isLimitReached ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
+          <Button onClick={() => setIsCreateModalOpen(true)} className="shrink-0 shadow-md shadow-indigo-500/20">
             <Plus className="w-4 h-4 mr-2" />
             <span>Novo Link</span>
           </Button>
@@ -658,16 +646,8 @@ export default function LinksManager() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className={`h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 ${(!roleSettings?.allowQrCode) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            onClick={() => { 
-                                if (roleSettings?.allowQrCode) {
-                                    setQrLink(link); 
-                                    setIsQrModalOpen(true); 
-                                } else {
-                                    showToast("Seu plano não permite criar QR Codes.", "error");
-                                }
-                            }}
-                            title={!roleSettings?.allowQrCode ? "Upgrade para criar QR Codes" : "QR Code"}
+                            className="h-8 px-3 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
+                            onClick={() => { setQrLink(link); setIsQrModalOpen(true); }}
                           >
                             <QrCode className="w-3.5 h-3.5 sm:mr-1.5" />
                             <span className="hidden sm:inline text-xs font-medium">QR Code</span>

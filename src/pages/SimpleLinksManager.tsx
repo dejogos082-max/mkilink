@@ -33,13 +33,10 @@ interface LinkData {
 }
 
 export default function SimpleLinksManager() {
-  const { currentUser, roleSettings } = useAuth();
+  const { currentUser } = useAuth();
   const [links, setLinks] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Check limits
-  const isLimitReached = roleSettings && links.length >= roleSettings.maxShortLinks;
-
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
@@ -202,16 +199,7 @@ export default function SimpleLinksManager() {
           </div>
           <p className="text-sm text-gray-500 ml-7">Links de redirecionamento direto, sem anúncios ou espera.</p>
         </div>
-        <Button 
-          onClick={() => {
-            if (isLimitReached) {
-              showToast(`Limite de ${roleSettings?.maxShortLinks} links atingido. Faça upgrade!`, 'error');
-              return;
-            }
-            setIsCreateModalOpen(true);
-          }} 
-          className={`shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-transparent shadow-md shadow-amber-500/20 ${isLimitReached ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
+        <Button onClick={() => setIsCreateModalOpen(true)} className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-transparent shadow-md shadow-amber-500/20">
           <Plus className="w-4 h-4 mr-2" />
           <span>Novo Link Curto</span>
         </Button>

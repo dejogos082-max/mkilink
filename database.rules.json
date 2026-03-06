@@ -2,9 +2,6 @@
   "rules": {
     ".read": true,
     ".write": true,
-    "AdminCode": {
-      ".indexOn": ["code"]
-    },
     "short_links": {
       ".indexOn": ["userId", "shortCode", "createdAt"]
     },

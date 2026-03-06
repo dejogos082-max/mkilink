@@ -17,13 +17,9 @@ interface Campaign {
 }
 
 export default function Campaigns() {
-  const { currentUser, roleSettings } = useAuth();
+  const { currentUser } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Check limits
-  const isLimitReached = roleSettings && campaigns.length >= roleSettings.maxCampaigns;
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,11 +92,7 @@ export default function Campaigns() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">Organize seus links em grupos para melhor rastreamento.</p>
         </div>
-        <Button 
-          onClick={() => setIsModalOpen(true)}
-          disabled={isLimitReached}
-          title={isLimitReached ? `Limite de ${roleSettings?.maxCampaigns} campanhas atingido.` : ""}
-        >
+        <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Nova Campanha
         </Button>

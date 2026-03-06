@@ -74,7 +74,7 @@ export default function Register() {
       await set(ref(db, `users/${user.uid}`), {
         email: user.email,
         createdAt: Date.now(),
-        role: 'UserFree',
+        role: 'user',
         status: 'active',
         referredBy: referralCode || null
       });

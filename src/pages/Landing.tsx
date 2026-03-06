@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { 
@@ -122,21 +122,8 @@ export default function Landing() {
     }
   ];
 
-  useEffect(() => {
-    const handleOrientation = (event: DeviceOrientationEvent) => {
-      if (window.innerWidth >= 768) return; // Only mobile
-      const background = document.getElementById('gyro-background');
-      if (background && event.beta !== null && event.gamma !== null) {
-        background.style.transform = `rotateX(${event.beta / 20}deg) rotateY(${event.gamma / 20}deg)`;
-      }
-    };
-
-    window.addEventListener('deviceorientation', handleOrientation);
-    return () => window.removeEventListener('deviceorientation', handleOrientation);
-  }, []);
-
   return (
-    <div id="gyro-background" className="min-h-screen bg-white font-sans text-gray-900 relative overflow-hidden transition-transform duration-100 ease-out">
+    <div className="min-h-screen bg-white font-sans text-gray-900 relative overflow-hidden">
       <ParticleBackground />
       <CursorGlow />
       
@@ -197,13 +184,13 @@ export default function Landing() {
                 Encurte links, monetize tráfego, crie páginas de bio e acompanhe analytics avançados em tempo real.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link to="/register" className="inline-block w-full sm:w-auto">
-                  <Button size="lg" className="w-full sm:w-auto h-14 text-lg px-8 rounded-full shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300">
-                    Criar conta grátis
+                <Link to="/register" className="w-full sm:w-auto">
+                  <Button size="lg" className="w-full h-14 text-lg px-8">
+                    Criar conta grátis <ArrowRight className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>
-                <Link to="/login" className="inline-block w-full sm:w-auto">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto h-14 text-lg px-8 rounded-full">
+                <Link to="/login" className="w-full sm:w-auto">
+                  <Button variant="outline" size="lg" className="w-full h-14 text-lg px-8">
                     Fazer login
                   </Button>
                 </Link>
@@ -272,6 +259,41 @@ export default function Landing() {
               </div>
             </TiltCard>
           </motion.div>
+        </div>
+      </section>
+
+      {/* What is it Section */}
+      <section className="py-24 bg-gray-50 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
+              Um workspace completo para gestão de links
+            </h2>
+            <p className="text-lg text-gray-500">
+              Uma plataforma para encurtar links, organizar campanhas, monetizar tráfego e acompanhar estatísticas detalhadas.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            {[
+              "Encurtador profissional",
+              "Links monetizados",
+              "Link na bio",
+              "Campanhas de marketing",
+              "Analytics avançado"
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 font-semibold text-gray-700 hover:border-indigo-200 hover:text-indigo-600 transition-colors"
+              >
+                {item}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -377,7 +399,7 @@ export default function Landing() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.1 }}
-                  className={`relative p-8 rounded-2xl border ${plan.highlight ? 'border-indigo-600 shadow-2xl bg-white md:scale-105' : 'border-gray-200 shadow-sm bg-gray-50'} flex flex-col h-full`}
+                  className={`relative p-8 rounded-2xl border ${plan.highlight ? 'border-indigo-600 shadow-2xl bg-white scale-105' : 'border-gray-200 shadow-sm bg-gray-50'} flex flex-col h-full`}
                 >
                   {plan.highlight && (
                     <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-indigo-600 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">

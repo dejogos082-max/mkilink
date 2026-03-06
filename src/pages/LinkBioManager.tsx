@@ -79,10 +79,9 @@ const LINK_TYPES: { type: LinkType; label: string; icon: any }[] = [
 ];
 
 export default function LinkBioManager() {
-  const { currentUser, roleSettings } = useAuth();
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [bioData, setBioData] = useState<BioData | null>(null);
-  const [bioCount, setBioCount] = useState(0);
   const [slugInput, setSlugInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -104,7 +103,6 @@ export default function LinkBioManager() {
     const unsubscribe = onValue(bioRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setBioCount(Object.keys(data).length);
         const key = Object.keys(data)[0];
         // Merge with default values to handle migrations/new fields
         const loadedData = data[key];
@@ -135,13 +133,6 @@ export default function LinkBioManager() {
 
   const handleCreateBio = async () => {
     if (!currentUser || !slugInput) return;
-    
-    // Check limit
-    if (roleSettings && bioCount >= roleSettings.maxBioPages) {
-        setError(`Limite de ${roleSettings.maxBioPages} páginas atingido.`);
-        return;
-    }
-
     const cleanSlug = slugInput.toLowerCase().replace(/[^a-z0-9-]/g, "");
     
     if (cleanSlug.length < 3) {
@@ -304,12 +295,7 @@ export default function LinkBioManager() {
                 {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
             </div>
             
-            <Button 
-                onClick={handleCreateBio} 
-                disabled={saving || (roleSettings && bioCount >= roleSettings.maxBioPages)} 
-                className="w-full"
-                title={roleSettings && bioCount >= roleSettings.maxBioPages ? `Limite de ${roleSettings.maxBioPages} páginas atingido.` : ""}
-            >
+            <Button onClick={handleCreateBio} disabled={saving} className="w-full">
                 {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Criar Página"}
             </Button>
         </div>

@@ -100,18 +100,7 @@ const menuItems = [
     path: "/plans",
     color: "bg-emerald-500",
     textColor: "text-emerald-500",
-    bgLight: "bg-emerald-50",
-    hideIfPlan: true
-  },
-  {
-    title: "Gerenciar Plano",
-    description: "Estatísticas e detalhes da sua assinatura.",
-    icon: CreditCard,
-    path: "/manage-plan",
-    color: "bg-indigo-500",
-    textColor: "text-indigo-500",
-    bgLight: "bg-indigo-50",
-    showIfPlan: true
+    bgLight: "bg-emerald-50"
   },
   {
     title: "Configurações",
@@ -134,7 +123,7 @@ const menuItems = [
 ];
 
 export default function Menu() {
-  const { isAdmin, roleSettings, role } = useAuth() || { isAdmin: false, roleSettings: null, role: 'UserFree' };
+  const { isAdmin } = useAuth() || { isAdmin: false };
   const [storeEnabled, setStoreEnabled] = useState(true);
 
   useEffect(() => {
@@ -151,24 +140,8 @@ export default function Menu() {
     return () => unsubscribe();
   }, []);
 
-  const hasPlan = role !== 'UserFree';
-
   const displayedMenuItems = menuItems.filter(item => {
     if (item.path === "/store" && !storeEnabled) return false;
-    
-    // Handle plan-specific visibility
-    if ((item as any).hideIfPlan && hasPlan) return false;
-    if ((item as any).showIfPlan && !hasPlan) return false;
-
-    // Filter based on role settings if not admin
-    if (!isAdmin && roleSettings?.allowedPages) {
-      // Always show these core pages
-      const alwaysAllowed = ['/dashboard', '/settings', '/profile', '/menu', '/plans', '/manage-plan'];
-      if (alwaysAllowed.includes(item.path)) return true;
-      
-      return roleSettings.allowedPages.some(p => item.path === p || item.path.startsWith(p + '/'));
-    }
-
     return true;
   });
 
