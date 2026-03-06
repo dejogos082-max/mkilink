@@ -316,7 +316,7 @@ async function startServer() {
   // hCaptcha Verification Endpoint
   app.post("/api/verify-hcaptcha", async (req, res) => {
     const { token } = req.body;
-    const secret = process.env.HCAPTCHA_SECRET || "ES_e3e3c0fb840a4f05a81c290a712e1e18";
+    const secret = process.env.HCAPTCHA_SECRET || "0x0000000000000000000000000000000000000000";
 
     // Bypass for AI Studio Preview if configured or if token is "mock-token"
     const origin = req.get('origin') || '';

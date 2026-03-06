@@ -13,9 +13,7 @@ import {
   CreditCard,
   Folder,
   Users,
-  User,
-  HelpCircle,
-  Code2
+  User
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -102,16 +100,18 @@ const menuItems = [
     path: "/plans",
     color: "bg-emerald-500",
     textColor: "text-emerald-500",
-    bgLight: "bg-emerald-50"
+    bgLight: "bg-emerald-50",
+    hideIfPlan: true
   },
   {
-    title: "Suporte",
-    description: "Central de ajuda e chat com IA.",
-    icon: HelpCircle,
-    path: "/support",
-    color: "bg-cyan-500",
-    textColor: "text-cyan-500",
-    bgLight: "bg-cyan-50"
+    title: "Gerenciar Plano",
+    description: "Estatísticas e detalhes da sua assinatura.",
+    icon: CreditCard,
+    path: "/manage-plan",
+    color: "bg-indigo-500",
+    textColor: "text-indigo-500",
+    bgLight: "bg-indigo-50",
+    showIfPlan: true
   },
   {
     title: "Configurações",
@@ -134,7 +134,7 @@ const menuItems = [
 ];
 
 export default function Menu() {
-  const { isAdmin } = useAuth() || { isAdmin: false };
+  const { isAdmin, roleSettings, role } = useAuth() || { isAdmin: false, roleSettings: null, role: 'UserFree' };
   const [storeEnabled, setStoreEnabled] = useState(true);
 
   useEffect(() => {
@@ -151,8 +151,24 @@ export default function Menu() {
     return () => unsubscribe();
   }, []);
 
+  const hasPlan = role !== 'UserFree';
+
   const displayedMenuItems = menuItems.filter(item => {
     if (item.path === "/store" && !storeEnabled) return false;
+    
+    // Handle plan-specific visibility
+    if ((item as any).hideIfPlan && hasPlan) return false;
+    if ((item as any).showIfPlan && !hasPlan) return false;
+
+    // Filter based on role settings if not admin
+    if (!isAdmin && roleSettings?.allowedPages) {
+      // Always show these core pages
+      const alwaysAllowed = ['/dashboard', '/settings', '/profile', '/menu', '/plans', '/manage-plan'];
+      if (alwaysAllowed.includes(item.path)) return true;
+      
+      return roleSettings.allowedPages.some(p => item.path === p || item.path.startsWith(p + '/'));
+    }
+
     return true;
   });
 
@@ -165,15 +181,6 @@ export default function Menu() {
       color: "bg-red-500",
       textColor: "text-red-500",
       bgLight: "bg-red-50"
-    });
-    displayedMenuItems.push({
-      title: "Documentação",
-      description: "Documentação completa de endpoints e API do sistema.",
-      icon: Code2,
-      path: "/documentation",
-      color: "bg-indigo-600",
-      textColor: "text-indigo-600",
-      bgLight: "bg-indigo-50"
     });
   }
 

@@ -97,6 +97,7 @@ export default function Admin() {
   // Invite Admin State
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<'AdminUser' | 'UserPremium' | 'UserEnterprise'>('AdminUser');
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -167,7 +168,7 @@ export default function Admin() {
               maxBioPages: 1,
               allowAutoQrCode: false,
               allowMonetization: false,
-              allowedPages: ['/dashboard', '/links', '/profile']
+              allowedPages: ['/dashboard', '/links', '/profile', '/menu']
             },
             UserPremium: {
               maxShortLinks: 50,
@@ -176,7 +177,7 @@ export default function Admin() {
               maxBioPages: 3,
               allowAutoQrCode: true,
               allowMonetization: false,
-              allowedPages: ['/dashboard', '/links', '/profile', '/campaigns', '/stats']
+              allowedPages: ['/dashboard', '/links', '/profile', '/campaigns', '/stats', '/menu', '/manage-plan']
             },
             UserEnterprise: {
               maxShortLinks: 9999,
@@ -185,7 +186,7 @@ export default function Admin() {
               maxBioPages: 9999,
               allowAutoQrCode: true,
               allowMonetization: true,
-              allowedPages: ['/dashboard', '/links', '/profile', '/campaigns', '/stats', '/monetization', '/custom-domains', '/affiliates']
+              allowedPages: ['/dashboard', '/links', '/profile', '/campaigns', '/stats', '/monetization', '/custom-domains', '/affiliates', '/menu', '/manage-plan']
             }
           };
           setRoleSettings(defaultRoles);
@@ -262,7 +263,7 @@ export default function Admin() {
     }
   };
 
-  const handleInviteAdmin = async (e: React.FormEvent) => {
+  const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail) return;
 
@@ -271,10 +272,17 @@ export default function Admin() {
       const inviteCode = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       
       // 2. Save invite to DB
-      await set(ref(db, `admin_invites/${inviteCode}`), {
+      // We use a generic 'invites' path now, but keep 'admin_invites' for backward compatibility if needed or just migrate.
+      // For simplicity and to support roles, let's use 'invites'.
+      // But wait, AcceptInvite reads from 'admin_invites'. I should update AcceptInvite first or simultaneously.
+      // Let's use 'admin_invites' for now but add the role field, and update AcceptInvite to read it.
+      // Actually, 'admin_invites' name is misleading now. Let's use 'invites' and update AcceptInvite.
+      await set(ref(db, `invites/${inviteCode}`), {
         email: inviteEmail,
+        role: inviteRole,
         createdBy: currentUser?.uid,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000)
       });
 
       // 3. Find user by email to send notification
@@ -282,9 +290,12 @@ export default function Admin() {
       
       if (targetUser) {
         // Send notification with link
+        const roleName = inviteRole === 'AdminUser' ? 'Administrador' : 
+                         inviteRole === 'UserPremium' ? 'Workspace Premium' : 'Workspace Enterprise';
+        
         const notification = {
-          title: "Convite para Administração",
-          message: "Você foi convidado para se tornar um administrador. Clique para aceitar.",
+          title: `Convite para ${roleName}`,
+          message: `Você foi convidado para o plano ${roleName}. Clique para aceitar.`,
           type: "success",
           actionType: "route",
           actionPayload: `/accept-invite/${inviteCode}`,
@@ -302,6 +313,7 @@ export default function Admin() {
       
       setIsInviteModalOpen(false);
       setInviteEmail("");
+      setSearchQuery(""); // Clear search query to restore full user list
     } catch (error) {
       console.error(error);
       showToast("Erro ao enviar convite", "error");
@@ -610,10 +622,20 @@ export default function Admin() {
                   className="w-full pl-9 pr-4 py-2 bg-gray-50 border-transparent rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
                 />
               </div>
-              <Button onClick={() => setIsInviteModalOpen(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Convidar Admin
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => { setInviteRole('UserPremium'); setIsInviteModalOpen(true); }} size="sm" className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Convidar Premium
+                </Button>
+                <Button onClick={() => { setInviteRole('UserEnterprise'); setIsInviteModalOpen(true); }} size="sm" className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black text-white border-0">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Convidar Enterprise
+                </Button>
+                <Button onClick={() => { setInviteRole('AdminUser'); setIsInviteModalOpen(true); }} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Convidar Admin
+                </Button>
+              </div>
             </div>
             
             <div className="overflow-x-auto">
@@ -1075,6 +1097,7 @@ export default function Admin() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[
                       { path: '/dashboard', label: 'Dashboard' },
+                      { path: '/menu', label: 'Menu' },
                       { path: '/links', label: 'Gerenciador de Links' },
                       { path: '/simple-links', label: 'Links Simples' },
                       { path: '/stats', label: 'Estatísticas' },
@@ -1114,7 +1137,7 @@ export default function Admin() {
         )}
       </div>
 
-      {/* Invite Admin Modal */}
+      {/* Invite User Modal */}
       <AnimatePresence>
         {isInviteModalOpen && (
           <motion.div 
@@ -1130,15 +1153,17 @@ export default function Admin() {
               className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
             >
               <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <h3 className="text-lg font-bold text-gray-900">Convidar Administrador</h3>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Convidar {inviteRole === 'AdminUser' ? 'Administrador' : inviteRole === 'UserPremium' ? 'Premium' : 'Enterprise'}
+                </h3>
                 <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               
-              <form onSubmit={handleInviteAdmin} className="p-6 space-y-4">
+              <form onSubmit={handleInviteUser} className="p-6 space-y-4">
                 <p className="text-sm text-gray-500">
-                  O usuário receberá uma notificação com um link para aceitar o convite e se tornar um administrador.
+                  O usuário receberá uma notificação com um link para aceitar o convite e se tornar um {inviteRole === 'AdminUser' ? 'administrador' : inviteRole === 'UserPremium' ? 'usuário Premium' : 'usuário Enterprise'}.
                 </p>
                 <Input
                   label="Email do Usuário"

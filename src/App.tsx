@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
+import { NativeAppProvider } from "./contexts/NativeAppContext";
 import { Layout } from "./components/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { GlobalLoader } from "./components/GlobalLoader";
@@ -119,7 +120,8 @@ export default function App() {
         <AuthProvider>
           <SettingsProvider>
             <Router>
-              <Routes>
+              <NativeAppProvider>
+                <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Layout><Login /></Layout>} />
@@ -342,6 +344,7 @@ export default function App() {
                   }
                 />
               </Routes>
+              </NativeAppProvider>
             </Router>
           </SettingsProvider>
         </AuthProvider>
