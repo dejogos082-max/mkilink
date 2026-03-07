@@ -26,6 +26,7 @@ export default function Dashboard() {
     totalCampaigns: 0,
     performance: 0
   });
+  const [geminiStats, setGeminiStats] = useState({ score: 0, insight: "" });
   const [recentLinks, setRecentLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickLinkUrl, setQuickLinkUrl] = useState("");
@@ -56,6 +57,7 @@ export default function Dashboard() {
     let viewsCount = 0;
 
     const updateStats = () => {
+      // Local calculation as fallback or immediate feedback
       const performance = viewsCount > 0 ? (linksData.clicks / viewsCount) * 100 : 0;
       setStats({
         totalLinks: linksData.count,
@@ -65,6 +67,25 @@ export default function Dashboard() {
       });
       setLoading(false);
     };
+
+    // Fetch Gemini Analysis
+    const fetchGeminiStats = async () => {
+        try {
+            const res = await fetch('/api/performance-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser.uid })
+            });
+            const data = await res.json();
+            if (data.score !== undefined) {
+                setGeminiStats({ score: data.score, insight: data.insight });
+            }
+        } catch (e) {
+            console.error("Failed to fetch Gemini stats", e);
+        }
+    };
+
+    fetchGeminiStats();
 
     const unsubscribeLinks = onValue(linksRef, (snapshot) => {
       const data = snapshot.val();
@@ -213,8 +234,11 @@ export default function Dashboard() {
             <div>
               <p className="text-sm font-medium text-gray-500">Performance</p>
               <h3 className="text-2xl font-bold text-gray-900">
-                {loading ? "..." : `${stats.performance.toFixed(1)}%`}
+                {loading ? "..." : `${geminiStats.score > 0 ? geminiStats.score.toFixed(1) : stats.performance.toFixed(1)}%`}
               </h3>
+              {geminiStats.insight && (
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2" title={geminiStats.insight}>{geminiStats.insight}</p>
+              )}
             </div>
           </div>
         </motion.div>

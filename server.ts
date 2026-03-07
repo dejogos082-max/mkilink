@@ -7,15 +7,16 @@ import { fileURLToPath } from "url";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, get, set, update, push } from "firebase/database";
+import { getDatabase, ref, get, set, update, push, query, orderByChild, equalTo } from "firebase/database";
 import nodemailer from "nodemailer";
 import Stripe from "stripe";
+import { GoogleGenAI } from "@google/genai";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Stripe Setup
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "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", {
-  apiVersion: "2025-02-24.acacia", // Updated to match recent version, user mentioned 2026-02-25.clover but that seems like a future version or typo in their context, sticking to a known recent one or the one in the code. Actually, let's use the one I had or a valid string. The user text said "The current version is 2026-02-25.clover". That date is in the future relative to now (2025). I will use the one I had or "2024-12-18.acacia" etc. Let's stick to the one I added previously or "2025-02-24.acacia" if valid.
+  // apiVersion removed to avoid type mismatch
 });
 
 // Email Transporter Setup
@@ -237,6 +238,118 @@ async function startServer() {
     } catch (error) {
       console.error("Adsterra API Error:", error);
       res.status(500).json({ error: "Failed to fetch smart link" });
+    }
+  });
+
+  // Gemini Performance Analysis Endpoint
+  app.post("/api/performance-analysis", async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: "UserId required" });
+
+    try {
+      // 1. Check existing stats
+      const statsRef = ref(db, `users/${userId}/performanceStats`);
+      const snapshot = await get(statsRef);
+      const now = Date.now();
+      const rateLimit = 10 * 60 * 1000; // 10 minutes rate limit
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (now - data.lastUpdated < rateLimit) {
+          return res.json(data);
+        }
+      }
+
+      // 2. Fetch user data for analysis
+      const linksSnapshot = await get(query(ref(db, "short_links"), orderByChild("userId"), equalTo(userId)));
+      const viewsSnapshot = await get(ref(db, `views/${userId}`));
+
+      let totalLinks = 0;
+      let totalClicks = 0;
+      let totalViews = 0;
+
+      if (linksSnapshot.exists()) {
+        const links: any = linksSnapshot.val();
+        totalLinks = Object.keys(links).length;
+        totalClicks = Object.values(links).reduce((acc: number, curr: any) => acc + (curr.clicks || 0), 0) as number;
+      }
+
+      if (viewsSnapshot.exists()) {
+        totalViews = Object.keys(viewsSnapshot.val()).length;
+      }
+
+      // 3. Call Gemini
+      // Prioritize the user-provided key explicitly
+      const apiKey = "AIzaSyALRWrAB4TF3sgtI14zc1A5K5cpEsHqf-s";
+      
+      if (!apiKey) {
+         console.warn("GEMINI_API_KEY is missing");
+         return res.json({ score: 0, insight: "Configure Gemini API Key for insights", lastUpdated: now });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      
+      const prompt = `
+        You are a data analyst. Analyze the following user performance data:
+        Total Links: ${totalLinks}
+        Total Clicks: ${totalClicks}
+        Total Views: ${totalViews}
+
+        Task:
+        1. Calculate a "Performance Score" (0-100) based on CTR (Clicks/Views) and engagement. If Views=0, Score=0.
+        2. Provide a very short, 1-sentence insight/tip in Portuguese.
+
+        Output format: JSON ONLY. No markdown, no code blocks.
+        Example: {"score": 85, "insight": "Bom trabalho!"}
+      `;
+
+      try {
+        const response = await ai.models.generateContent({
+            model: "gemini-3.1-flash-lite-preview",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json"
+            }
+        });
+        
+        const responseText = response.text;
+        
+        // Clean up potential markdown if model ignores instruction
+        const cleanText = responseText?.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        let analysis;
+        try {
+            analysis = JSON.parse(cleanText || "{}");
+        } catch (e) {
+            console.error("JSON Parse Error:", e, "Text:", responseText);
+            throw new Error("Invalid JSON response");
+        }
+
+        const newStats = {
+            score: typeof analysis.score === 'number' ? analysis.score : 0,
+            insight: analysis.insight || "Sem insights no momento.",
+            lastUpdated: now
+        };
+
+        // 4. Save to Firebase
+        await set(statsRef, newStats);
+
+        res.json(newStats);
+      } catch (genError: any) {
+          console.error("Gemini Generation Error:", genError);
+          const simpleScore = totalViews > 0 ? Math.min(100, (totalClicks / totalViews) * 100) : 0;
+          const fallbackStats = {
+              score: simpleScore,
+              insight: "Análise indisponível: " + (genError.message || "Erro desconhecido"),
+              lastUpdated: now
+          };
+          await set(statsRef, fallbackStats);
+          res.json(fallbackStats);
+      }
+
+    } catch (error) {
+      console.error("Gemini Analysis Error:", error);
+      res.status(500).json({ error: "Failed to analyze performance" });
     }
   });
 
