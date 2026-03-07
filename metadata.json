@@ -1,5 +1,5 @@
 {
   "name": "MKI Links PRO",
-  "description": "A real URL shortener with AI-controlled performance dashboard, featuring smooth Framer Motion animations.",
+  "description": "A real URL shortener with Firebase Auth and Realtime Database, featuring smooth Framer Motion animations.",
   "requestFramePermissions": []
 }

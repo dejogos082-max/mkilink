@@ -54,17 +54,4 @@ html, body {
   backdrop-filter: blur(16px);
 }
 
-/* Safe Area Utilities */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
-
-.safe-area-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 4rem); /* 4rem for bottom nav */
-}
-
 /* Dark mode overrides removed */

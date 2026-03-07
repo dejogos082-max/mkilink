@@ -7,17 +7,10 @@ import { fileURLToPath } from "url";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, get, set, update, push, query, orderByChild, equalTo } from "firebase/database";
+import { getDatabase, ref, get, set, update, push } from "firebase/database";
 import nodemailer from "nodemailer";
-import Stripe from "stripe";
-import { GoogleGenAI } from "@google/genai";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Stripe Setup
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "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", {
-  // apiVersion removed to avoid type mismatch
-});
 
 // Email Transporter Setup
 const transporter = nodemailer.createTransport({
@@ -241,118 +234,6 @@ async function startServer() {
     }
   });
 
-  // Gemini Performance Analysis Endpoint
-  app.post("/api/performance-analysis", async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: "UserId required" });
-
-    try {
-      // 1. Check existing stats
-      const statsRef = ref(db, `users/${userId}/performanceStats`);
-      const snapshot = await get(statsRef);
-      const now = Date.now();
-      const rateLimit = 10 * 60 * 1000; // 10 minutes rate limit
-
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        if (now - data.lastUpdated < rateLimit) {
-          return res.json(data);
-        }
-      }
-
-      // 2. Fetch user data for analysis
-      const linksSnapshot = await get(query(ref(db, "short_links"), orderByChild("userId"), equalTo(userId)));
-      const viewsSnapshot = await get(ref(db, `views/${userId}`));
-
-      let totalLinks = 0;
-      let totalClicks = 0;
-      let totalViews = 0;
-
-      if (linksSnapshot.exists()) {
-        const links: any = linksSnapshot.val();
-        totalLinks = Object.keys(links).length;
-        totalClicks = Object.values(links).reduce((acc: number, curr: any) => acc + (curr.clicks || 0), 0) as number;
-      }
-
-      if (viewsSnapshot.exists()) {
-        totalViews = Object.keys(viewsSnapshot.val()).length;
-      }
-
-      // 3. Call Gemini
-      // Prioritize the user-provided key explicitly
-      const apiKey = "AIzaSyALRWrAB4TF3sgtI14zc1A5K5cpEsHqf-s";
-      
-      if (!apiKey) {
-         console.warn("GEMINI_API_KEY is missing");
-         return res.json({ score: 0, insight: "Configure Gemini API Key for insights", lastUpdated: now });
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-      
-      const prompt = `
-        You are a data analyst. Analyze the following user performance data:
-        Total Links: ${totalLinks}
-        Total Clicks: ${totalClicks}
-        Total Views: ${totalViews}
-
-        Task:
-        1. Calculate a "Performance Score" (0-100) based on CTR (Clicks/Views) and engagement. If Views=0, Score=0.
-        2. Provide a very short, 1-sentence insight/tip in Portuguese.
-
-        Output format: JSON ONLY. No markdown, no code blocks.
-        Example: {"score": 85, "insight": "Bom trabalho!"}
-      `;
-
-      try {
-        const response = await ai.models.generateContent({
-            model: "gemini-3.1-flash-lite-preview",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json"
-            }
-        });
-        
-        const responseText = response.text;
-        
-        // Clean up potential markdown if model ignores instruction
-        const cleanText = responseText?.replace(/```json/g, '').replace(/```/g, '').trim();
-        
-        let analysis;
-        try {
-            analysis = JSON.parse(cleanText || "{}");
-        } catch (e) {
-            console.error("JSON Parse Error:", e, "Text:", responseText);
-            throw new Error("Invalid JSON response");
-        }
-
-        const newStats = {
-            score: typeof analysis.score === 'number' ? analysis.score : 0,
-            insight: analysis.insight || "Sem insights no momento.",
-            lastUpdated: now
-        };
-
-        // 4. Save to Firebase
-        await set(statsRef, newStats);
-
-        res.json(newStats);
-      } catch (genError: any) {
-          console.error("Gemini Generation Error:", genError);
-          const simpleScore = totalViews > 0 ? Math.min(100, (totalClicks / totalViews) * 100) : 0;
-          const fallbackStats = {
-              score: simpleScore,
-              insight: "Análise indisponível: " + (genError.message || "Erro desconhecido"),
-              lastUpdated: now
-          };
-          await set(statsRef, fallbackStats);
-          res.json(fallbackStats);
-      }
-
-    } catch (error) {
-      console.error("Gemini Analysis Error:", error);
-      res.status(500).json({ error: "Failed to analyze performance" });
-    }
-  });
-
   // MFA Endpoints
   const mfaCodes = new Map<string, { code: string, expires: number }>();
 
@@ -429,7 +310,8 @@ async function startServer() {
   // hCaptcha Verification Endpoint
   app.post("/api/verify-hcaptcha", async (req, res) => {
     const { token } = req.body;
-    const secret = process.env.HCAPTCHA_SECRET || "ES_e3e3c0fb840a4f05a81c290a712e1e18";
+    // Use Test Secret by default if env var is not set
+    const secret = process.env.HCAPTCHA_SECRET || "0x0000000000000000000000000000000000000000";
 
     // Bypass for AI Studio Preview if configured or if token is "mock-token"
     const origin = req.get('origin') || '';
@@ -461,7 +343,12 @@ async function startServer() {
       } else {
         // If in preview/dev environment and verification fails (likely due to domain mismatch), allow it.
         if (isPreview) {
-            console.warn("hCaptcha verification failed but allowed in preview:", data["error-codes"]);
+            const errorCodes = data["error-codes"] || [];
+            if (errorCodes.includes('sitekey-secret-mismatch')) {
+                console.log("Dev mode: Bypassing hCaptcha verification (sitekey-secret-mismatch). This is expected if you haven't set HCAPTCHA_SECRET.");
+            } else {
+                console.warn("hCaptcha verification failed but allowed in preview:", errorCodes);
+            }
             return res.json({ success: true, warning: "Bypassed in preview" });
         }
         res.status(400).json({ success: false, error: data["error-codes"] });
@@ -505,121 +392,6 @@ async function startServer() {
       console.error("Log Login Error:", error);
       res.status(500).json({ error: "Failed to log login" });
     }
-  });
-
-  // Stripe Endpoints
-  app.post("/api/create-checkout-session", async (req, res) => {
-    try {
-      const { planId, userId, userEmail, successUrl, cancelUrl } = req.body;
-
-      if (!planId || !userId) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      // Map planId to Stripe Price ID
-      // NOTE: You should replace these with your actual Stripe Price IDs
-      // For now, we'll create ad-hoc prices or use test IDs
-      let priceId;
-      let productName;
-      let amount; // in cents
-
-      switch (planId) {
-        case "premium":
-          productName = "Workspace Premium";
-          amount = 2900; // R$ 29.00
-          break;
-        case "business":
-          productName = "Workspace Empresarial";
-          amount = 9900; // R$ 99.00
-          break;
-        default:
-          return res.status(400).json({ error: "Invalid plan ID" });
-      }
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: "brl",
-              product_data: {
-                name: productName,
-              },
-              unit_amount: amount,
-              recurring: {
-                interval: "month",
-              },
-            },
-            quantity: 1,
-          },
-        ],
-        mode: "subscription",
-        success_url: successUrl || `${req.headers.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl || `${req.headers.origin}/checkout/cancel`,
-        customer_email: userEmail,
-        metadata: {
-          userId: userId,
-          planId: planId,
-        },
-      });
-
-      res.json({ url: session.url });
-    } catch (error: any) {
-      console.error("Stripe Checkout Error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
-    const sig = req.headers["stripe-signature"];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    let event;
-
-    try {
-      if (endpointSecret && sig) {
-        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-      } else {
-        event = req.body;
-      }
-    } catch (err: any) {
-      console.error(`Webhook Error: ${err.message}`);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    switch (event.type) {
-      case "checkout.session.completed":
-        const session = event.data.object;
-        const userId = session.metadata?.userId;
-        const planId = session.metadata?.planId;
-
-        if (userId && planId) {
-          console.log(`Payment successful for user ${userId} and plan ${planId}`);
-          
-          // Update user subscription in Firebase
-          try {
-            const subscriptionData = {
-              planId: planId,
-              status: "active",
-              startDate: Date.now(),
-              stripeSessionId: session.id,
-              stripeCustomerId: session.customer,
-              stripeSubscriptionId: session.subscription,
-            };
-            
-            await update(ref(db, `users/${userId}/subscription`), subscriptionData);
-            await update(ref(db, `users/${userId}/profile`), { plan: planId }); // Update profile plan as well
-          } catch (dbError) {
-            console.error("Error updating Firebase after payment:", dbError);
-          }
-        }
-        break;
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-    }
-
-    res.send();
   });
 
   // Vite middleware for development

@@ -797,7 +797,7 @@ export default function Redirect() {
                   <div className="flex justify-center my-4 min-h-[78px]">
                     <HCaptchaWrapper>
                       <HCaptcha
-                        sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "0b32d3c2-baa2-41d0-82a2-7e4cf074b27e"}
+                        sitekey={import.meta.env.VITE_HCAPTCHA_SITEKEY || "10000000-ffff-ffff-ffff-000000000001"}
                         onVerify={handleCaptchaVerify}
                         ref={captchaRef}
                       />
