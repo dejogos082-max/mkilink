@@ -12,7 +12,8 @@ import {
   ShoppingBag,
   CreditCard,
   Folder,
-  Users
+  Users,
+  User
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -99,7 +100,18 @@ const menuItems = [
     path: "/plans",
     color: "bg-emerald-500",
     textColor: "text-emerald-500",
-    bgLight: "bg-emerald-50"
+    bgLight: "bg-emerald-50",
+    hideIfPlan: true
+  },
+  {
+    title: "Gerenciar Plano",
+    description: "Estatísticas e detalhes da sua assinatura.",
+    icon: CreditCard,
+    path: "/manage-plan",
+    color: "bg-indigo-500",
+    textColor: "text-indigo-500",
+    bgLight: "bg-indigo-50",
+    showIfPlan: true
   },
   {
     title: "Configurações",
@@ -109,11 +121,20 @@ const menuItems = [
     color: "bg-gray-500",
     textColor: "text-gray-500",
     bgLight: "bg-gray-50"
+  },
+  {
+    title: "Perfil",
+    description: "Gerencie suas informações pessoais e preferências.",
+    icon: User,
+    path: "/profile",
+    color: "bg-teal-500",
+    textColor: "text-teal-500",
+    bgLight: "bg-teal-50"
   }
 ];
 
 export default function Menu() {
-  const { isAdmin } = useAuth() || { isAdmin: false };
+  const { isAdmin, roleSettings, role } = useAuth() || { isAdmin: false, roleSettings: null, role: 'UserFree' };
   const [storeEnabled, setStoreEnabled] = useState(true);
 
   useEffect(() => {
@@ -130,8 +151,24 @@ export default function Menu() {
     return () => unsubscribe();
   }, []);
 
+  const hasPlan = role !== 'UserFree';
+
   const displayedMenuItems = menuItems.filter(item => {
     if (item.path === "/store" && !storeEnabled) return false;
+    
+    // Handle plan-specific visibility
+    if ((item as any).hideIfPlan && hasPlan) return false;
+    if ((item as any).showIfPlan && !hasPlan) return false;
+
+    // Filter based on role settings if not admin
+    if (!isAdmin && roleSettings?.allowedPages) {
+      // Always show these core pages
+      const alwaysAllowed = ['/dashboard', '/settings', '/profile', '/menu', '/plans', '/manage-plan'];
+      if (alwaysAllowed.includes(item.path)) return true;
+      
+      return roleSettings.allowedPages.some(p => item.path === p || item.path.startsWith(p + '/'));
+    }
+
     return true;
   });
 
