@@ -14,10 +14,15 @@ import { GoogleGenAI } from "@google/genai";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Stripe Setup
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "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", {
-  // apiVersion removed to avoid type mismatch
-});
+// Stripe Helper
+let stripeInstance: Stripe | null = null;
+function getStripe() {
+  if (!stripeInstance) {
+    const key = process.env.STRIPE_SECRET_KEY || "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";
+    stripeInstance = new Stripe(key);
+  }
+  return stripeInstance;
+}
 
 // Email Transporter Setup
 const transporter = nodemailer.createTransport({
@@ -536,7 +541,7 @@ async function startServer() {
           return res.status(400).json({ error: "Invalid plan ID" });
       }
 
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
           {
@@ -578,7 +583,7 @@ async function startServer() {
 
     try {
       if (endpointSecret && sig) {
-        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+        event = getStripe().webhooks.constructEvent(req.body, sig, endpointSecret);
       } else {
         event = req.body;
       }
