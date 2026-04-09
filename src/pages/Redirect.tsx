@@ -106,6 +106,7 @@ export default function Redirect() {
   // Secure Redirect State
   const [redirectToken, setRedirectToken] = useState<string | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isSimpleRedirecting, setIsSimpleRedirecting] = useState(false);
 
   const handleCaptchaVerify = async (token: string) => {
     setValidationError(null);
@@ -260,6 +261,15 @@ export default function Redirect() {
             targetUrl = destinations[randomIndex];
           }
 
+          // Handle Simple Links (Instant Redirect) - ONLY if no password
+          if (data.type === 'simple' && !data.settings?.password) {
+            setIsSimpleRedirecting(true);
+            // Track click asynchronously
+            recordClick(shortId, data);
+            window.location.replace(targetUrl);
+            return;
+          }
+
           // 4. Check Password Protection
           if (data.settings?.password) {
             setIsPasswordProtected(true);
@@ -291,14 +301,6 @@ export default function Redirect() {
             if (data.settings.headerTitle) {
                 setHeaderTitle(data.settings.headerTitle);
             }
-          }
-
-          // Handle Simple Links (Instant Redirect) - ONLY if no password
-          if (data.type === 'simple' && !data.settings?.password) {
-            // Track click asynchronously
-            recordClick(shortId, data);
-            window.location.href = targetUrl;
-            return;
           }
 
         } else {
@@ -539,6 +541,10 @@ export default function Redirect() {
         </div>
       </div>
     );
+  }
+
+  if (isSimpleRedirecting) {
+    return null; // Return empty state to avoid flashing loading screen
   }
 
   if (!originalUrl) {

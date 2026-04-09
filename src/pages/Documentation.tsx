@@ -128,24 +128,6 @@ const endpoints = [
         response: { success: true }
       }
     ]
-  },
-  {
-    group: "Pagamentos",
-    items: [
-      {
-        method: "POST",
-        path: "/api/create-checkout-session",
-        description: "Cria uma sessão de checkout do Stripe para upgrade de plano.",
-        auth: "Usuário Autenticado",
-        icon: CreditCard,
-        params: [
-          { name: "planId", type: "string", required: true },
-          { name: "userId", type: "string", required: true },
-          { name: "userEmail", type: "string", required: true }
-        ],
-        response: { url: "https://checkout.stripe.com/..." }
-      }
-    ]
   }
 ];
 

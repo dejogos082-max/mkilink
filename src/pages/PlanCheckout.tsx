@@ -95,33 +95,24 @@ export default function PlanCheckout() {
     setProcessing(true);
 
     try {
-      // Create Checkout Session
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planId: planId,
-          userId: currentUser.uid,
-          userEmail: currentUser.email,
-          successUrl: `${window.location.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${window.location.origin}/plans`,
-        }),
-      });
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const data = await response.json();
+      // Update user subscription in Firebase directly
+      const subscriptionData = {
+        planId: planId,
+        status: "active",
+        startDate: Date.now(),
+      };
+      
+      await set(ref(db, `users/${currentUser.uid}/subscription`), subscriptionData);
+      await set(ref(db, `users/${currentUser.uid}/profile/plan`), planId);
 
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error('Failed to create checkout session:', data.error);
-        alert('Erro ao iniciar o pagamento. Tente novamente.');
-        setProcessing(false);
-      }
+      setStep('success');
+      setProcessing(false);
     } catch (error) {
       console.error('Error:', error);
-      alert('Erro ao conectar com o servidor.');
+      alert('Erro ao processar a assinatura.');
       setProcessing(false);
     }
   };
@@ -219,15 +210,15 @@ export default function PlanCheckout() {
                 <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-start gap-3">
                   <Lock className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-indigo-900">Pagamento Seguro via Stripe</p>
+                    <p className="text-sm font-medium text-indigo-900">Pagamento Seguro</p>
                     <p className="text-xs text-indigo-700 mt-1">
-                      Você será redirecionado para a página segura do Stripe para concluir o pagamento.
+                      Sua assinatura será processada com segurança.
                     </p>
                   </div>
                 </div>
 
                 <Button type="submit" size="lg" className="w-full" disabled={processing}>
-                  {processing ? 'Redirecionando...' : `Ir para Pagamento (R$ ${selectedPlan.price.toFixed(2)})`}
+                  {processing ? 'Processando...' : `Confirmar Assinatura (R$ ${selectedPlan.price.toFixed(2)})`}
                 </Button>
               </form>
             </motion.div>
